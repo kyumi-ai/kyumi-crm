@@ -298,7 +298,9 @@
   .snap-row .tiny:nth-child(2){flex:1}
   .cell-editor{font-family:var(--mono);font-size:11px;padding:3px 6px;border:1px solid var(--accent);background:#fff;color:var(--ink);width:100%;max-width:190px;outline:none;display:block;box-sizing:border-box}
   td.editable{cursor:pointer}
-  td.editable:hover{outline:1.5px dashed var(--accent);outline-offset:-2px}
+  td.editable:hover{outline:1.5px dashed var(--accent);outline-offset:-2px;background:rgba(180,83,14,.08)}
+  td.editable::after{content:"✎";font-size:9px;color:var(--accent);opacity:0;margin-left:5px;vertical-align:super}
+  td.editable:hover::after{opacity:.7}
   details.add-lead{border-bottom:1px solid var(--line-faint);background:rgba(255,255,255,.4)}
   details.add-lead summary{cursor:pointer;list-style:none;font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:9px 18px;color:var(--accent)}
   details.add-lead summary::-webkit-details-marker{display:none}
@@ -312,6 +314,23 @@
     font-family:var(--mono);font-size:10px;color:var(--ink-faint);
     text-align:center;letter-spacing:.1em;margin-top:10px;
   }
+
+/* Hypotheses zone */
+#zone-hypotheses{margin:16px 0}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}
+.hcard{border:1px solid #c9c2b0;background:#fff;padding:12px 14px}
+.hcard-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.hid{font-weight:700;font-size:12px;letter-spacing:.05em;color:#1f3a5f}
+.hverd{font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:2px;white-space:nowrap}
+.hv-good{background:#e3efe3;color:#2c6e49}
+.hv-bad{background:#f6e0dd;color:#a3331f}
+.hv-early{background:#f2ecd9;color:#8a6d1b}
+.hv-untag{background:#eceae4;color:#777}
+.htitle{font-size:13px;font-weight:600;color:#2b2b2b;margin-bottom:6px;line-height:1.3}
+.hmetric{font-size:12px;color:#1f3a5f;margin-bottom:5px}
+.hmetric b{font-weight:700}
+.hread{font-size:11px;color:#666;line-height:1.4}
+.hcov{grid-column:1/-1;font-size:11px;color:#888;padding-top:2px}
 </style>
 </head>
 <body>
@@ -443,7 +462,7 @@
 </section>
 
 <section id="zone-leads">
-  <div class="sec-head"><span class="zone">ZONE H</span><h2>All Leads</h2><span class="hint">click stage · lane · date · next action · 2nd/3rd TP to edit · ✕ to delete</span></div>
+  <div class="sec-head"><span class="zone">ZONE H</span><h2>All Leads</h2><span class="hint">click any Stage / Lane / date / note cell to edit it — saves live for you & Jimmy · <b>+ Add lead</b> to add someone · ✕ to delete</span></div>
   <div id="dupes" class="dupes" style="display:none"></div>
   <details class="add-lead">
     <summary>+ Add lead</summary>
@@ -475,6 +494,14 @@
   </div>
 </section>
 
+<section class="zone" id="zone-hypotheses">
+  <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+    <span style="font-weight:700;color:#b4530e;font-size:12px;letter-spacing:.08em">ZONE I</span>
+    <b style="font-size:15px;letter-spacing:.04em">HYPOTHESES</b>
+    <span style="font-size:11px;color:#888">live GTM scoreboard &middot; recomputes on every change &middot; follows the owner toggle</span>
+  </div>
+  <div id="hypotheses" class="hgrid"></div>
+</section>
 <footer>KYUMI-CRM-001 · REV A · TOLERANCES: FOLLOW-UPS ±0 DAYS · DO NOT SCALE FROM THIS DRAWING</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1204,14 +1231,21 @@ function buildQueue(){
     {id:'due',       label:'Next action due',        why:'next-action date is today or past', items:[]},
     {id:'push',      label:'Push for meeting',       why:'replied / awaiting their reply ≥3 days ago — nudge', items:[]},
     {id:'push_demo', label:'Push for demo',          why:'meeting done ≥3 days ago — pitch the demo', items:[]},
-    {id:'notes',     label:'Scheduled follow-ups',   why:'verbal / demo done — keep the date in the notes', items:[]},
+    {id:'notes',     label:'Scheduled follow-ups',   why:'has a future next-action date, or verbal/demo-done with a date in notes', items:[]},
     {id:'prep',      label:'Prep booked meetings',   why:'meeting booked — confirm + prep · or needs rescheduling', items:[]},
     {id:'final',     label:'Final touch or archive', why:'accepted but ignoring you ≥7 days — one last try', items:[]},
     {id:'double',    label:'Check for acceptance',   why:'invite pending ≥4 days — accepted? double text. still pending? consider InMail', items:[]},
   ];
   scopedLeads().forEach(l => {
     const d = daysSince(l.lastTouch);
-    if(l.stage !== 'Lost' && l.nextActionDate && normDate(l.nextActionDate) <= TODAY_ISO) groups[0].items.push({l, d, note: l.nextAction || 'next action due'});
+    // "Next action due" is satisfied the moment you touch the lead on/after its
+    // next-action date — so a touch logged today dynamically clears it from the queue.
+    if(l.stage !== 'Lost' && l.nextActionDate && normDate(l.nextActionDate) <= TODAY_ISO
+       && (!l.lastTouch || normDate(l.lastTouch) < normDate(l.nextActionDate))) groups[0].items.push({l, d, note: l.nextAction || 'next action due'});
+    // A future next-action date is a scheduled follow-up — park it under "Scheduled
+    // follow-ups" until the date arrives (then the 'due' branch above picks it up).
+    else if(l.stage !== 'Lost' && l.nextActionDate && normDate(l.nextActionDate) > TODAY_ISO)
+      groups[3].items.push({l, d, note: (l.nextAction ? l.nextAction + ' · ' : 'follow up ') + l.nextActionDate});
     else if((l.stage === 'Replied' || l.stage === 'Awaiting Reply') && d !== null && d >= 3) groups[1].items.push({l, d});
     else if(l.stage === 'Meeting Done' && d !== null && d >= 3) groups[2].items.push({l, d});
     else if(l.stage === 'Verbal' || l.stage === 'Demo Done') groups[3].items.push({l, d, note: l.tp2 || l.tp3});
@@ -1713,7 +1747,7 @@ function applyModeConfig(){
   MEETING_STAGES = inv ? INVESTOR_MEETING_STAGES : new Set(['Meeting Booked','Meeting Done','Demo Done','Verbal']);
   const alStage = $('alStage'); if(alStage) alStage.innerHTML = STAGES.map(s => '<option>' + esc(s) + '</option>').join('');
   const show = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; };
-  ['zone-funnel','zone-accounts','zone-icp','zone-inmail'].forEach(id => show(id, !inv));
+  ['zone-funnel','zone-accounts','zone-icp','zone-inmail','zone-hypotheses'].forEach(id => show(id, !inv));
   show('zone-thesis', inv);
   // funnel shares a 2-col row with Outreach Volume; when funnel is hidden (investor mode)
   // collapse that row to 1 column so Volume spans full width instead of leaving a gap.
@@ -1817,7 +1851,84 @@ function renderInvestorTable(){
   $('leadTable').querySelectorAll('th.sortable').forEach(th => th.onclick = () => { const f = th.dataset.f; if(sortField === f) sortDir = -sortDir; else { sortField = f; sortDir = 1; } renderTable(); });
 }
 
+
+/* ============================== HYPOTHESES (live GTM scoreboard) ============================== */
+/* Embedded company classification (normalized name -> type code) so V2/V6 compute with no DB
+   writes. Codes: E=Enterprise OEM, S=Hardware Startup, J=Job Shop, D=Design Consultancy,
+   C=Component Supplier, O=Other. */
+const CTYPE_MAP = {"shredtech":"E","arrowmachine":"J","globestamping":"J","gerrits":"D","ecologix":"E","otoinc":"S","winsafe":"E","stakindustries":"E","calhounsuperstructure":"E","grandriverinternational":"O","carmanahtechnologies":"E","helixcorpration":"O","transomcorp":"E","atticamfg":"J","dalstronginc":"E","meaforensic":"D","presvacsystems":"E","edson":"E","noonenergy":"S","muro":"E","hepburninc":"E","radialpower":"O","ballservice":"J","jtsmechanicalsystems":"O","cpcpumpsinternational":"E","handtmanncanadalimited":"O","mdtsportinggoods":"E","millertechnology":"E","milteramachining":"J","stonestraw":"E","vrmechanicalsolutions":"O","huysindustries":"C","danaincorprated":"C","ozoptics":"C","roteqmachinery":"E","odellhvacgroup":"O","baypathinc":"D","nuvationenergy":"C","stromcoreenergy":"S","palitronica":"S","carbonengineering":"S","vmac":"E","icp":"J","radtorquesystems":"E","glendimplexsystems":"E","workbenchenergy":"O","myant":"S","vuereal":"S","elementaltrucks":"S","paige":"O","clearpathrobotics":"S","nord43inc":"O","nicoya":"S","nytric":"D","atomic13":"S","gypsum":"O","prenuvo":"S","atscorporation":"J","christiedigitalsystems":"E","sonovagroup":"E","eclipseautomation":"J","fastarobotics":"S","wekrtractors":"S","hermatitemfg":"C","self":"O","sommersgeneratorsystems":"E","coltcanada":"E","amiattachments":"E","reelinrobotics":"S","miovision":"S","tmg":"O","econolitecanada":"E","cumminsinc":"E","illumisonics":"S","arbutusmedicalinc":"S","dvelectronics":"E","enervacinternational":"E","triplehfurniture":"E","norwestprecisionlimited":"J","ergocentric":"E","frankorhydraulic":"C","internationalwaterguardindustries":"C","kineticcustomtrailers":"E","oneupcomponents":"E","efiengineering":"D","jameswaymfg":"E","cioncorp":"O","trajektsports":"S","caframo":"E","swagelok":"C","longboardarchitecturalproducts":"E","robarindustriesltd":"C","tollosinc":"E","betterbuilt":"E","escapetrailerindustries":"E","nicholsonmanufacturingltd":"E","shellexconsulting":"D","slacanindustires":"C","reachsystems":"E","zelusmaterial":"J","burloaktechnologies":"J","scican":"E","rstinstruments":"E","generalfusion":"S","dropletlabs":"S","multimatic":"C","tigercatindustries":"E","raytheon":"E","caterpillar":"E","archeraviation":"S","ditto":"O","esgsolutions":"E","kniterate":"S","cemengineering":"D","intuitive":"E","newageproducts":"E","svante":"S","flex":"J","google":"O","faurecia":"C","henrycompany":"E","scelectriccompany":"E","blackmcdonald":"O","panasonicautomotivecanada":"E","maplesoft":"O","amsiinc":"E","soltamedical":"E","microsoft":"E","terrastrialenergy":"S","prattwhitney":"E","thyssenkruppmaterialsna":"C","teledyneflir":"E","kohlerco":"E","andritz":"E","plasman":"J","toyotanorthamerica":"E","cerrowire":"C","atkinsrealis":"D","arxrobotics":"S","enginuitypowersystems":"S","peakdesign":"E","analyticsystems":"C","glsai":"O","spacex":"E","milwaukeetool":"E","stealthstartup":"O","waterscorporation":"E","crusoe":"S","foxtrotmikeproductsfmproducts":"E","andurilindustries":"S","wisconsinracing":"O","texasinstruments":"C","maestropd":"D","paloaltonetworks":"O","w5engineering":"C","solidpowerinc":"S","juullabs":"S","nuvosun":"C","daytonpartsdrivenbydorman":"C","1x":"S","amperesand":"S","rivianandvolkswagengrouptechnologies":"E","archer":"S","normalroboticslab":"S","foundryrobotics":"S","pmgroup":"D","chandlerindustries":"J","multitechautomations":"O","keysighttechnologies":"E","meta":"E","coremobilitysolutions":"S","verse":"O","geoship":"S","bostonscientific":"E","ametekprecitech":"E","pentair":"E","stealth":"O","mill":"S","roadwarriorinc":"C","vonnen":"S","inevitable":"S","tesla":"E","rivesmanufacturinginc":"J","jabil":"J","neonaero":"S","harbinger":"S","newleafenergy":"O","appliedmaterials":"E","genuine":"O","skydio":"S","span":"S","rivian":"E","divergent":"S","formenergy":"S","figure":"S","agilityrobotics":"S","also":"O","lyft":"O","redwoodmaterials":"E","lyten":"S","cooperlightingsolutions":"E","zoox":"S","oura":"S","philips":"E","anduril":"S","heronpower":"S","whisker":"E","glid":"S","fvbenergy":"D","lunarenergy":"S","uber":"O","wayve":"O","gknaerospace":"C","ctdi":"O","lucidmotors":"E","proterra":"E","qpac":"E","biomerics":"J","faradayfuture":"E","skullcandyinc":"E","pebble":"S","cobot":"S","bostondynamics":"E","graymatterrobotics":"S","millenniumspacesystems":"E","agilespaceindustries":"S","onespan":"O","generac":"E","garmin":"E","ampere":"E","epcpowercorp":"E","baxterinternationalinc":"E","fabric8labs":"S","nov":"E","southbendnc":"J","apptronik":"S","ura":"S","hentechnologies":"S","vast":"S","magnainternational":"C","confirmjuly2slot":"O","therocketlaunchersatutrgv":"O","skyryse":"S","edwardslifesciences":"E","zipline":"S","parsystems":"J","aeva":"C","excelitastechnologies":"C","thelumbermanufactory":"S","paragon28":"E","generaldynamicsots":"E","nextpower":"E","lockheedmartin":"E","samsara":"S","bill":"O","penumbra":"E","volvocars":"E","katayamamanufacturing":"C","thredup":"O","litensautomotive":"C","mclarenengineering":"D","metrican":"J","coralev":"O","bowmanconsulting":"D","standardiron":"J","clorox":"E","integrateddnatechnologies":"C","evgo":"O","atomicmachines":"S","velauraai":"C","sirenopt":"S","accelsius":"S","mavenrobotics":"S","nevados":"S","byd":"E","whoop":"S","tritedinnovationinc":"J","aecom":"D","varimtechnologies":"S","ontariodieinternational":"J","fmfmetal":"J","appliedkinetics":"D","ckengineeringinc":"D","invetaautomation":"J","marionsurgical":"S","viryltechnologiescorp":"E","3m":"E","riotinto":"E","liburditurbineservices":"O","electranstechnologiesltd":"S","cadmechdesign":"D","gusproinc":"E","powengineeringgroup":"J","bnzengineering":"D","siemensenergy":"E","coltautomationltd":"E","cleanworks":"S","meishunheelectroniclimited":"C","geosourceenergyinc":"O","universityoftorontosupermileage":"O","fusionframe":"O","geotab":"E","strongpointautomationinc":"J","uplandtechnologiesinc":"J","consystintgroupinc":"J","inviroengineeredsystemsltd":"D","q5x":"E","ideogram":"O","reynoldstokesengineering":"D","finitefarms":"S","intertecamericas":"C","safran":"E","biomesense":"S","daintegrated":"D","icspi":"S","nstxindustries":"S","massivdieform":"J","rampfcompositesolutions":"J","mat4siteengineerslimited":"D","bioorbit":"S","h5resources":"O","engineersnovascotia":"O","brickeye":"S","geosyntecconsultants":"D","collinsfrazerengineeringinc":"D","tcatechnologiesinc":"J","avestec":"S","megaresistors":"C","magnumintegratedtechnologies":"J","pressurevesselengineering":"D","ultimationindustries":"J","alfaint":"J","matcormatsugroup":"J","danaincorporated":"C","mneengineeringinc":"D","mcgregorallsoplimited":"D","durockalfacinginternationallimited":"E","hyivyhealth":"S","givensengineeringinc":"E","908engineeringinc":"D","deiconsultingengineers":"D","caterpillarinc":"E","trystar":"E","inmotive":"C","samuelautomation":"J","aerotekmanufacturing":"J","csmc":"J","realliferobotics":"S","acerta":"O","bpwlab":"J","nucapindustries":"C","7dkinematicsmetrology":"C","diversifiedproductdevelopement":"D","forcen":"C","baylismedical":"E","venamedical":"S","liftwerx":"S","fluidaimedical":"S","theaquilagroup":"O","cortexdesign":"D","deeptrekker":"S","paltonaircrafts":"O","karmaxheavystamping":"J","cobionix":"S","sonele":"E","profoundmedical":"S","variousfirms":"O","upsiderobotics":"S","intelliculture":"O","gforce":"O","ionicautomation":"J","elevatefarms":"S","amnimotech":"E","daltecprocessfans":"E","automatedcuttingmachinery":"E","mentordynamics":"E","virtekvision":"E","wilsondisplay":"E","taymer":"E","parity":"O","smarteralloys":"S","ircoautomation":"E","veradekinc":"E","excoengineering":"J","hitachiconstruction":"E","tsi":"E","retinex":"O","expertiqatechnologies":"S","luftstrommanufacturing":"J","velatron":"C","trexorobotics":"S","acceleratedsystems":"C","rmf":"O","powersmithsinternational":"E","rocketev":"O","precisionelevator":"O","lindequipment":"E","avnanelectroinc":"J","capstone":"E","odellhvac":"O","energycompany":"O","cmi":"J","ccc":"C","bafoldingcartons":"J","xpvwater":"O","acrylicrobotics":"S","pegasusaero":"S","liburdi":"E","sorsystechnologies":"J","intecautomation":"J","gs":"O","nuvation":"D","kinitics":"S","designalaska":"D","rbdigital":"O","newsunroad":"S","riacasthouse":"E","eri":"O","aubren":"E","fluidai":"S","weirmotionmetrics":"E","universityofwaterloo":"O","texassae":"O","fordadvancedev":"E","vinyltech":"C","norco":"E","canengfurnacesinternationallimited":"E","alumapower":"S","uwaterloo":"O","nvidia":"E","trautmanassociates":"D","bubbletechnologyindustries":"S","jupiterendovascular":"S","rotatingmachinery":"O","forceninc":"C","netzsch":"E","greenlightinnovation":"E","deltaelevator":"E","afasystems":"E","odg":"S","inertia":"O","maticrobots":"S","arrow":"O","student":"O","uofwaterloo":"O","matic":"S","ppoptica":"S","voyis":"E","nexthydrogen":"S","morgansolar":"S","luminorenvironmentalinc":"E","atomicsemi":"S","hooperwelding":"J","equipmentexpressinc":"O","slacan":"C","industry":"O","avidbots":"S","brickeyeformerlyaomstechnologies":"S","forgeautomationycw25":"J","gastronomous":"S","cobionixcorporation":"S","adg":"J","appliedcontrolsinc":"J","design1st":"D","apex":"S","dxs":"O","westpromachinery":"E","littlelakesmachinetoolco":"J","powerhouseinternational":"E","eascanautomation":"J","baxtecmechanicalservices":"O","verystengineeringllc":"D","factorytechnologies":"J","edsonpackaging":"E","aypapower":"O","enwave":"O","wincorp":"O","hammerschlagjoffeinc":"D","rybkagroup":"D","envigo":"O","readysystemsindustries":"J","genesisrobotics":"C","transomcorporation":"E","fvbenergyinc":"D","various":"O","wearcheckcanadainc":"O","stainlesspipingsystemsinc":"J","adventecmanufacturing":"J","kelsonmechanicalltd":"O","amixmarineprojects":"O","ehvertmissioncritical":"D","condairltd":"E","tagengineering":"J","igardcorporation":"C","stressengineeringservicescanada":"D","werkrtractors":"S","thefountainheadgroup":"E","deneagroup":"D","pegasusaeronautics":"S","ballservicegroup":"J","avegant":"S","intlvac":"E","thorglobalenterprises":"E","cscled":"E","thehallexgroup":"D","boldengineering":"D","sanyocanadianmachineworks":"J","lyrata":"S","magellanbiomedical":"S","swaprobotics":"S","atkinsralis":"D","fhautomation":"J","ccomsatellitesystems":"S","mondelez":"E","vitescotechnologies":"E","siemenshealthineers":"E","blueoceangear":"S","avidroneaerospace":"E","catodigital":"O","microntechnology":"C","arvaindustries":"E","qstsolutions":"O","helpwear":"S","nuvationengineering":"D","kubotabrabender":"E","langguthamerica":"E","chorleybisset":"D","alstom":"E","zfgroup":"C","tempaid":"E","rhythmautomotive":"C","razdesign":"E","wireframe":"O","stromcore":"S","missioncontrol":"O","stryker":"E","solexthermalscience":"E","bleacherrentals":"O","unilever":"E","conspeccontrols":"E","raiserobotics":"S","marcrestmanufacturing":"E","kaimaging":"S","psyonic":"S","nuwaveresearch":"E","honeywell":"E","avss":"S","photoncontrol":"C","sungrow":"E","digitalwatersolutions":"S"};
+const CTYPE_LABEL = {E:'Enterprise OEM', S:'Hardware Startup', J:'Job Shop', D:'Design Consultancy', C:'Component Supplier', O:'Other'};
+function deriveCompanyType(company){ const c = CTYPE_MAP[(company||'').toLowerCase().replace(/[^a-z0-9]/g,'')]; return c ? CTYPE_LABEL[c] : ''; }
+function leadCompanyType(l){ return l.companyType || deriveCompanyType(l.company); }
+const H_REPLIED = new Set(['Replied','Meeting Booked','Reschedule Meeting','Meeting Done','Demo Done','Verbal']);
+const H_MEETING = new Set(['Meeting Booked','Reschedule Meeting','Meeting Done','Demo Done','Verbal']);
+function hReplied(l){ return H_REPLIED.has(l.stage); }
+function hMeeting(l){ return H_MEETING.has(l.stage); }
+function hVerbal(l){ return l.stage === 'Verbal'; }
+function hpct(n,d){ return d ? (100*n/d) : 0; }
+function renderHypotheses(){
+  const host = $('hypotheses'); if(!host) return;
+  if(mode === 'investors'){ host.innerHTML=''; return; }
+  const ls = scopedLeads(), N = ls.length, F = 5;
+  const VERD = {good:['VALIDATED','hv-good'], bad:['INVALIDATED','hv-bad'], early:['TOO EARLY','hv-early'], untag:['NEEDS TAGGING','hv-untag']};
+  const card = (id, title, verdict, metric, read) => {
+    const v = VERD[verdict] || VERD.early;
+    return '<div class="hcard"><div class="hcard-top"><span class="hid">'+id+'</span><span class="hverd '+v[1]+'">'+v[0]+'</span></div>'
+      + '<div class="htitle">'+esc(title)+'</div><div class="hmetric">'+metric+'</div><div class="hread">'+esc(read)+'</div></div>';
+  };
+  const meetings = ls.filter(hMeeting), verbals = ls.filter(hVerbal);
+  const ICs = ls.filter(l=>l.seniority==='IC'), seniors = ls.filter(l=>l.seniority && l.seniority!=='IC');
+  const icMeet = hpct(ICs.filter(hMeeting).length, ICs.length), snMeet = hpct(seniors.filter(hMeeting).length, seniors.length);
+  const icRep = hpct(ICs.filter(hReplied).length, ICs.length), snRep = hpct(seniors.filter(hReplied).length, seniors.length);
+  const warm = ls.filter(l=>['WARM','HOT'].includes((l.lane||'').toUpperCase()));
+  const cold = ls.filter(l=>(l.lane||'').toUpperCase()==='COLD');
+  const warmRep = hpct(warm.filter(hReplied).length, warm.length), coldRep = hpct(cold.filter(hReplied).length, cold.length);
+  const m2v = hpct(verbals.length, meetings.length);
+  const typed = ls.filter(l=>leadCompanyType(l));
+  const ofType = lbl => ls.filter(l=>leadCompanyType(l)===lbl);
+  const product = ls.filter(l=>{const t=leadCompanyType(l); return t==='Enterprise OEM'||t==='Hardware Startup';});
+  const jobshop = ofType('Job Shop'), startup = ofType('Hardware Startup'), ent = ofType('Enterprise OEM');
+  const prodRep = hpct(product.filter(hReplied).length, product.length), jobRep = hpct(jobshop.filter(hReplied).length, jobshop.length);
+  const entVerbals = ent.filter(hVerbal).length, nonEntVerbals = verbals.length - entVerbals;
+  const mv = Array.from(new Set(meetings.concat(verbals)));
+  const leaderMv = mv.filter(l=>l.seniority && l.seniority!=='IC').length;
+  const BLAST_ENT = /caterpillar|raytheon|tigercat|tiger cat/i;   // the named giants we mass-blasted
+  const coldEnt = ls.filter(l=>(l.lane||'').toUpperCase()==='COLD' && BLAST_ENT.test(l.company||''));
+  const coldEntRep = coldEnt.filter(hReplied).length;
+  const out = [];
+  out.push(card('V1','Persona = engineering leader at a product-maker',
+    mv.length>=3 ? (leaderMv>=mv.length/2?'good':'early') : 'early',
+    '<b>'+leaderMv+'/'+mv.length+'</b> of meetings+verbals are Mgr/Dir/VP/Founder',
+    'The people who take meetings and give verbals are hands-on engineering leaders, not ICs.'));
+  out.push(card('V2','SMB / startup converts, enterprise does not',
+    ent.length<F ? 'untag' : (verbals.length>0 ? (entVerbals===0?'good':'early') : 'early'),
+    'Enterprise verbals: <b>'+entVerbals+'</b> (of '+ent.length+' contacted) &middot; everyone else: <b>'+nonEntVerbals+'</b>',
+    entVerbals===0&&verbals.length>0 ? 'Every verbal came from a startup/SMB; enterprise gives meetings at best.' : 'Watching whether any enterprise account converts.'));
+  out.push(card('V3','Seniority drives the meeting, not the reply',
+    (ICs.length>=F&&seniors.length>=F) ? (snMeet>icMeet*1.5?'good':'early') : 'early',
+    'Reply: IC '+icRep.toFixed(1)+'% &asymp; seniors '+snRep.toFixed(1)+'% &middot; Meeting: IC <b>'+icMeet.toFixed(1)+'%</b> vs seniors <b>'+snMeet.toFixed(1)+'%</b>',
+    'ICs are just as curious but rarely book; the seniority signal is in meetings, not replies.'));
+  out.push(card('V4','Warm / referral beats cold',
+    warm.length<F ? 'early' : (warmRep>coldRep?'good':'early'),
+    'Warm/Hot <b>'+warmRep.toFixed(1)+'%</b> (n='+warm.length+') vs Cold <b>'+coldRep.toFixed(1)+'%</b> (n='+cold.length+') reply',
+    warm.length<F ? 'Too few warm leads to call it yet.' : 'Warm/referral replies far above cold; highest-leverage channel.'));
+  out.push(card('V5','The bottleneck is the meeting, not closing',
+    meetings.length<F ? 'early' : (m2v>=25?'good':'early'),
+    'Meeting &rarr; verbal: <b>'+m2v.toFixed(0)+'%</b> ('+verbals.length+'/'+meetings.length+')',
+    'Once you are in the room you convert well; the hard part is getting the meeting.'));
+  out.push(card('V6','Product-makers beat job-shops; startups win',
+    (product.length<F||jobshop.length<F) ? 'early' : (prodRep>jobRep?'good':'early'),
+    'Product-maker <b>'+prodRep.toFixed(1)+'%</b> vs job-shop <b>'+jobRep.toFixed(1)+'%</b> &middot; hardware-startup '+hpct(startup.filter(hReplied).length,startup.length).toFixed(1)+'%',
+    'Job-shops barely respond; hardware startups are the standout.'));
+  out.push(card('I1','"Cold enterprise is reachable by volume"',
+    coldEnt.length<F ? 'early' : (coldEntRep===0?'bad':'early'),
+    'Caterpillar / Raytheon / TigerCat (cold): <b>'+coldEnt.length+'</b> contacted, <b>'+coldEntRep+'</b> replied',
+    coldEntRep===0 ? 'Mass-blasting enterprise still yields nothing; invalidated.' : 'A cold-enterprise reply appeared; revisit.'));
+  host.innerHTML = out.join('') + '<div class="hcov">Company-type verdicts (V2, V6) cover '+typed.length+' of '+N+' leads classified'+(ownerView!=='all'?' &middot; '+ownerView+' view':'')+'.</div>';
+}
+
 function renderAll(){
+  renderHypotheses();
   renderTitleBlock(); renderDaily(); renderKPIs(); renderFunnel(); renderVolume();
   renderAccounts(); renderSegments(); renderThesis(); renderQueue(); renderInmail(); renderFilters(); renderTable(); renderDupes();
   renderHistory();
