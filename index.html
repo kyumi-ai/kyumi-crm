@@ -648,6 +648,10 @@ async function dbLoadAll(){
 function adoptRows(rows){
   leads = rows.map(r => normalizeLead(r.data || {}));
   _synced = new Map(leads.map(l => [dbKey(l), JSON.stringify(l)]));
+  // The daily-touch tracker reads from touchLog, which only lived in localStorage. On a
+  // fresh device (e.g. the hosted site) that's empty, so rebuild it from the shared
+  // lastTouch dates every time we load cloud data — otherwise "touches" all read 0.
+  if(mode !== 'investors'){ syncTouchLog(); try{ localStorage.setItem(TOUCH_KEY, JSON.stringify(touchLog)); }catch(e){} }
   try{ localStorage.setItem(mode === 'investors' ? LS_KEY_INV : LS_KEY, JSON.stringify(leads)); }catch(e){}
 }
 async function dbBootstrap(){
@@ -655,7 +659,7 @@ async function dbBootstrap(){
   setCloudStatus('connecting to cloud…');
   const rows = await dbLoadAll();
   if(rows && rows.length){ adoptRows(rows); renderAll(); setCloudStatus('● LIVE — synced to cloud'); }
-  else if(rows){ _synced = new Map(); setCloudStatus('● LIVE — empty, this device will seed it'); queueDbSync(); }
+  else if(rows){ _synced = new Map(); setCloudStatus('● connected — no rows for this view'); }  // never auto-push cache over the cloud
   else { setCloudStatus('○ offline — using local cache'); }
   subscribeRealtime();
 }
