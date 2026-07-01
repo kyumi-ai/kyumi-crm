@@ -188,12 +188,9 @@
   .chip.stage-awaiting-reply{color:var(--accent);font-style:italic}
   .chip.stage-meeting-booked,.chip.stage-meeting-done{color:var(--accent)}
   .chip.stage-reschedule-meeting{color:var(--hot)}
-  .chip.stage-researching{color:var(--ink-faint)}
-  .chip.stage-reached-out{color:var(--steel)}
-  .chip.stage-building-relationship{color:var(--steel);font-style:italic}
-  .chip.stage-meeting,.chip.stage-pitched{color:var(--accent)}
-  .chip.stage-diligence{color:var(--accent);font-weight:700}
-  .chip.stage-term-sheet,.chip.stage-closed{color:var(--ok);background:var(--ok-soft)}
+  .chip.stage-to-contact{color:var(--ink-faint)}
+  .chip.stage-meeting{color:var(--accent);font-weight:700}
+  .chip.stage-closed{color:var(--ok);background:var(--ok-soft)}
   .chip.stage-passed{color:var(--ink-faint);text-decoration:line-through}
   .chip.thesis-bullseye{color:#fff;background:var(--ok);border-color:var(--ok)}
   .chip.thesis-strong{color:var(--ok)}
@@ -529,8 +526,16 @@ const DT_TP2 = "Hi [name], thanks for connecting! As mentioned, I've been talkin
 let STAGES = ['Contacted','Double Texted','Replied','Awaiting Reply','Meeting Booked','Reschedule Meeting','Meeting Done','Demo Done','Verbal','Lost'];
 let MEETING_STAGES = new Set(['Meeting Booked','Meeting Done','Demo Done','Verbal']);
 const CUSTOMER_STAGES = STAGES;
-const INVESTOR_STAGES = ['Researching','Reached Out','Building Relationship','Meeting','Pitched','Diligence','Term Sheet','Closed','Passed'];
-const INVESTOR_MEETING_STAGES = new Set(['Meeting','Pitched','Diligence','Term Sheet','Closed']);
+const INVESTOR_STAGES = ['To Contact','Awaiting Reply','Replied','Meeting','Closed','Passed'];
+const INVESTOR_MEETING_STAGES = new Set(['Meeting','Closed']);
+// Moving a card into one of these is an OUTCOME, not a fresh outreach touch (see NO_TOUCH_STAGES).
+const INVESTOR_NO_TOUCH_STAGES = new Set(['Closed','Passed']);
+// Old (pre-simplification) investor stage names → the new 6-stage set. Applied in canonStage so
+// stored/live cards and pasted rows self-heal on load. Keys are lower-cased.
+const INVESTOR_STAGE_MIGRATION = {
+  'researching':'To Contact', 'reached out':'Awaiting Reply', 'building relationship':'Replied',
+  'pitched':'Meeting', 'diligence':'Meeting', 'term sheet':'Meeting'
+};
 let mode = 'customers';
 const LS_KEY_INV = 'kyumi-inv-v1';
 const INMAIL_RIPEN_DAYS = 7;  // only InMail a pending invite once a free accept is unlikely
@@ -628,21 +633,21 @@ function loadInvestors(){
   return SEED_INVESTORS.map(normalizeLead);
 }
 const SEED_INVESTORS = [
-  {name:'Ibrahim Hafeez', fund:'ANFA Capital', partner:'Ibrahim Hafeez', thesisFit:'Generalist', owner:'Larry', stage:'Building Relationship', lastTouch:'2026-04-19', nextAction:'Reconnect at MVP', tp1:'Liked the idea, passed for now — come back at MVP. Sharp on LOIs ("letters of nothing") + focus.'},
-  {name:'Root Ventures', fund:'Root Ventures', checkSize:'Seed', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'⚠ Possible conflict — backed AllSpice (EE competitor). Engineer-led deep-tech seed, best thesis fit.'},
-  {name:'Schematic Ventures', fund:'Schematic Ventures', checkSize:'$1–2M lead', thesisFit:'Bullseye', owner:'Larry', stage:'Researching', tp1:'Leads pre-seed/seed; industrial "makes & moves the world" thesis.'},
-  {name:'Garage Capital', fund:'Garage Capital', checkSize:'$200–750k', thesisFit:'Bullseye', introPath:'Waterloo / local', owner:'Larry', stage:'Researching', tp1:'Waterloo; dev-tools / vertical-SaaS — home court.'},
-  {name:'Golden Ventures', fund:'Golden Ventures', checkSize:'$500k–2M', thesisFit:'Bullseye', owner:'Larry', stage:'Researching', tp1:'Toronto seed B2B software.'},
-  {name:'Panache Ventures', fund:'Panache Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Backed CoLab; most active Canadian seed.'},
-  {name:'Humba Ventures', fund:'Humba Ventures', checkSize:'$250–750k', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Pre-seed/seed robotics & manufacturing.'},
-  {name:'2048 Ventures', fund:'2048 Ventures', checkSize:'$500k–2M', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Pre-seed/seed Vertical AI + Deep Tech.'},
-  {name:'Bain Capital Ventures', fund:'Bain Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Led Cofactr (electronics-hardware SaaS).'},
-  {name:'Floating Point Ventures', fund:'Floating Point Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Backed Cofactr.'},
-  {name:'Commonwealth Capital', fund:'Commonwealth Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Backed Paperless Parts; Boston early B2B.'},
-  {name:'Sunflower Capital', fund:'Sunflower Capital', thesisFit:'Generalist', owner:'Larry', stage:'Researching', tp1:'Seed B2B/enterprise/AI (ex-Sequoia GP). Generalist, not bullseye.'},
-  {name:'Soma Capital', fund:'Soma Capital', thesisFit:'Generalist', owner:'Larry', stage:'Researching', tp1:'Prolific seed; founder network.'},
-  {name:'Construct Capital', fund:'Construct Capital', checkSize:'$2–5M', thesisFit:'Later', owner:'Larry', stage:'Researching', tp1:'Industrial thesis but writes bigger — Series A timing.'},
-  {name:'Insight Partners', fund:'Insight Partners', thesisFit:'Later', owner:'Larry', stage:'Researching', tp1:'⚠ Backed CoLab (competitor). Growth-stage — keep warm for Series A.'},
+  {name:'Ibrahim Hafeez', fund:'ANFA Capital', partner:'Ibrahim Hafeez', thesisFit:'Generalist', owner:'Larry', stage:'Replied', lastTouch:'2026-04-19', nextAction:'Reconnect at MVP', tp1:'Liked the idea, passed for now — come back at MVP. Sharp on LOIs ("letters of nothing") + focus.'},
+  {name:'Root Ventures', fund:'Root Ventures', checkSize:'Seed', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'⚠ Possible conflict — backed AllSpice (EE competitor). Engineer-led deep-tech seed, best thesis fit.'},
+  {name:'Schematic Ventures', fund:'Schematic Ventures', checkSize:'$1–2M lead', thesisFit:'Bullseye', owner:'Larry', stage:'To Contact', tp1:'Leads pre-seed/seed; industrial "makes & moves the world" thesis.'},
+  {name:'Garage Capital', fund:'Garage Capital', checkSize:'$200–750k', thesisFit:'Bullseye', introPath:'Waterloo / local', owner:'Larry', stage:'To Contact', tp1:'Waterloo; dev-tools / vertical-SaaS — home court.'},
+  {name:'Golden Ventures', fund:'Golden Ventures', checkSize:'$500k–2M', thesisFit:'Bullseye', owner:'Larry', stage:'To Contact', tp1:'Toronto seed B2B software.'},
+  {name:'Panache Ventures', fund:'Panache Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Backed CoLab; most active Canadian seed.'},
+  {name:'Humba Ventures', fund:'Humba Ventures', checkSize:'$250–750k', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Pre-seed/seed robotics & manufacturing.'},
+  {name:'2048 Ventures', fund:'2048 Ventures', checkSize:'$500k–2M', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Pre-seed/seed Vertical AI + Deep Tech.'},
+  {name:'Bain Capital Ventures', fund:'Bain Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Led Cofactr (electronics-hardware SaaS).'},
+  {name:'Floating Point Ventures', fund:'Floating Point Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Backed Cofactr.'},
+  {name:'Commonwealth Capital', fund:'Commonwealth Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Backed Paperless Parts; Boston early B2B.'},
+  {name:'Sunflower Capital', fund:'Sunflower Capital', thesisFit:'Generalist', owner:'Larry', stage:'To Contact', tp1:'Seed B2B/enterprise/AI (ex-Sequoia GP). Generalist, not bullseye.'},
+  {name:'Soma Capital', fund:'Soma Capital', thesisFit:'Generalist', owner:'Larry', stage:'To Contact', tp1:'Prolific seed; founder network.'},
+  {name:'Construct Capital', fund:'Construct Capital', checkSize:'$2–5M', thesisFit:'Later', owner:'Larry', stage:'To Contact', tp1:'Industrial thesis but writes bigger — Series A timing.'},
+  {name:'Insight Partners', fund:'Insight Partners', thesisFit:'Later', owner:'Larry', stage:'To Contact', tp1:'⚠ Backed CoLab (competitor). Growth-stage — keep warm for Series A.'},
 ];
 
 /* ============================== CLOUD SYNC (Supabase) ============================== */
@@ -1002,6 +1007,7 @@ function normalizeLead(o){
 }
 function canonStage(s){
   const t = s.trim().toLowerCase();
+  if(INVESTOR_STAGE_MIGRATION[t]) return INVESTOR_STAGE_MIGRATION[t];
   for(const st of STAGES){ if(st.toLowerCase() === t) return st; }
   return s.trim();
 }
@@ -1771,15 +1777,13 @@ function switchMode(m){
 }
 function renderInvestorKPIs(){
   const ls = scopedLeads(), c = stageCounts(), g = s => c[s] || 0;
-  const inConvo = g('Reached Out') + g('Building Relationship') + g('Meeting');
   const queueN = buildQueue().reduce((n, gr) => n + gr.items.length, 0);
   $('kpis').innerHTML = `
     <div class="kpi"><label>Targets</label><div class="num">${ls.length}</div><div class="sub">in pipeline</div></div>
-    <div class="kpi steel"><label>Researching</label><div class="num">${g('Researching')}</div><div class="sub">not yet contacted</div></div>
-    <div class="kpi steel"><label>In Conversation</label><div class="num">${inConvo}</div><div class="sub">reached out / nurturing / met</div></div>
-    <div class="kpi accent"><label>Pitched</label><div class="num">${g('Pitched')}</div><div class="sub">delivered the pitch</div></div>
-    <div class="kpi accent"><label>Diligence</label><div class="num">${g('Diligence')}</div><div class="sub">in diligence</div></div>
-    <div class="kpi ok"><label>Term Sheets</label><div class="num">${g('Term Sheet')}</div><div class="sub">received</div></div>
+    <div class="kpi steel"><label>To Contact</label><div class="num">${g('To Contact')}</div><div class="sub">not yet reached out</div></div>
+    <div class="kpi steel"><label>Awaiting Reply</label><div class="num">${g('Awaiting Reply')}</div><div class="sub">reached out · no response</div></div>
+    <div class="kpi accent"><label>Replied</label><div class="num">${g('Replied')}</div><div class="sub">connected back</div></div>
+    <div class="kpi accent"><label>Meeting</label><div class="num">${g('Meeting')}</div><div class="sub">in talks</div></div>
     <div class="kpi ok"><label>Closed</label><div class="num">${g('Closed')}</div><div class="sub">committed</div></div>
     <div class="kpi"><label>Action Queue</label><div class="num">${queueN}</div><div class="sub">touches due</div></div>`;
 }
@@ -1802,7 +1806,7 @@ function buildInvestorQueue(){
 function renderThesis(){
   const el = $('thesisBody'); if(!el) return;
   const counts = new Map();
-  scopedLeads().forEach(l => { const k = (l.thesisFit || '').trim() || '(untagged)'; if(!counts.has(k)) counts.set(k, {count:0, adv:0}); const e = counts.get(k); e.count++; if(l.stage === 'Closed' || l.stage === 'Term Sheet' || l.stage === 'Diligence') e.adv++; });
+  scopedLeads().forEach(l => { const k = (l.thesisFit || '').trim() || '(untagged)'; if(!counts.has(k)) counts.set(k, {count:0, adv:0}); const e = counts.get(k); e.count++; if(l.stage === 'Closed' || l.stage === 'Meeting') e.adv++; });
   const order = [...THESIS_TIERS, '(untagged)'];
   const entries = [...counts.entries()].sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99));
   const max = Math.max(1, ...entries.map(e => e[1].count));
@@ -2061,7 +2065,8 @@ $('kanban').addEventListener('drop', e => {
   let i = _kdragI; if(i===null){ const t=e.dataTransfer.getData('text/plain'); i = t==='' ? -1 : +t; } _kdragI=null;
   if(i>=0 && leads[i] && leads[i].stage !== b.dataset.stage){
     const ns=b.dataset.stage, li=i;
-    if(NO_TOUCH_STAGES.has(ns)){ commitEdit(li, {stage: ns}); }  // outcome stage: stage only, no touch
+    const noTouch = mode === 'investors' ? INVESTOR_NO_TOUCH_STAGES : NO_TOUCH_STAGES;
+    if(noTouch.has(ns)){ commitEdit(li, {stage: ns}); }  // outcome stage: stage only, no touch
     else askTouchDate(leads[i].name, leads[i].stage, ns, function(date){ if(date) commitEdit(li, {stage: ns, lastTouch: date}); else renderBoard(); });
   }
 });
