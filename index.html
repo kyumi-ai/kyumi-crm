@@ -331,6 +331,23 @@
 .hmetric b{font-weight:700}
 .hread{font-size:11px;color:#666;line-height:1.4}
 .hcov{grid-column:1/-1;font-size:11px;color:#888;padding-top:2px}
+
+/* Pipeline Board (Kanban) */
+#zone-board{margin:16px 0}
+.kboard{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}
+.kcol{flex:0 0 190px;background:#eee7d6;border:1px solid #c9c2b0;display:flex;flex-direction:column;max-height:560px}
+.kcol-head{font-size:11px;font-weight:700;letter-spacing:.03em;padding:8px 10px;border-bottom:1px solid #c9c2b0;display:flex;justify-content:space-between;align-items:center;color:#2b2b2b}
+.kcount{background:#1f3a5f;color:#fff;border-radius:9px;padding:1px 7px;font-size:10px;font-weight:700}
+.kcol-body{padding:8px;overflow-y:auto;flex:1;min-height:44px}
+.kcol-body.kover{background:#e2ecdf;outline:2px dashed #2c6e49;outline-offset:-4px}
+.kcard{background:#fff;border:1px solid #c9c2b0;border-left:3px solid #9aa;padding:7px 9px;margin-bottom:7px;cursor:grab}
+.kcard:hover{box-shadow:0 1px 6px rgba(0,0,0,.10)}
+.kcard.dragging{opacity:.4}
+.kcard.lane-HOT{border-left-color:#a3331f}
+.kcard.lane-WARM{border-left-color:#b4530e}
+.kcard.lane-COLD{border-left-color:#8391a6}
+.kname{font-weight:600;font-size:12px;color:#222;line-height:1.2}
+.kmeta{font-size:10px;color:#777;margin-top:3px}
 </style>
 </head>
 <body>
@@ -375,7 +392,7 @@
 
 <section id="zone-import">
   <div class="sec-head">
-    <span class="zone">ZONE A</span><h2>Paste-In Importer</h2>
+    <h2>Paste-In Importer</h2>
     <span class="hint">copy rows in Google Sheets → paste below → import (dedupes on name + company)</span>
   </div>
   <div class="sec-body import-wrap">
@@ -407,17 +424,26 @@
   </div>
 </section>
 
+<section id="zone-board">
+  <div class="sec-head"><h2>Pipeline Board</h2><span class="hint">drag a card to another column to change its stage — saves live · follows the owner toggle</span></div>
+  <div id="kanban" class="kboard"></div>
+</section>
+
 <section class="zone" id="zone-hypotheses">
   <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
-    <span style="font-weight:700;color:#b4530e;font-size:12px;letter-spacing:.08em">ZONE B</span>
     <b style="font-size:15px;letter-spacing:.04em">HYPOTHESES</b>
     <span style="font-size:11px;color:#888">live GTM scoreboard &middot; recomputes on every change &middot; follows the owner toggle (All / Larry / Jimmy)</span>
   </div>
   <div id="hypotheses" class="hgrid"></div>
 </section>
 
+<section id="zone-queue">
+  <div class="sec-head"><h2>Action Queue — Today</h2><span class="hint" id="queueHint"></span></div>
+  <div class="sec-body" id="queue"></div>
+</section>
+
 <section id="zone-leads">
-  <div class="sec-head"><span class="zone">ZONE C</span><h2>All Leads</h2><span class="hint">click any Stage / Lane / date / note cell to edit it — saves live for you & Jimmy · <b>+ Add lead</b> to add someone · ✕ to delete</span></div>
+  <div class="sec-head"><h2>All Leads</h2><span class="hint">click any Stage / Lane / date / note cell to edit it — saves live for you & Jimmy · <b>+ Add lead</b> to add someone · ✕ to delete</span></div>
   <div id="dupes" class="dupes" style="display:none"></div>
   <details class="add-lead">
     <summary>+ Add lead</summary>
@@ -450,27 +476,23 @@
 </section>
 
 <section id="zone-accounts">
-  <div class="sec-head"><span class="zone">ZONE D</span><h2>Account Concentration</h2><span class="hint">top accounts by lead count — big blast + 0 replies = wasted sends</span></div>
+  <div class="sec-head"><h2>Account Concentration</h2><span class="hint">top accounts by lead count — big blast + 0 replies = wasted sends</span></div>
   <div class="sec-body" id="accounts"></div>
 </section>
 
 <section id="zone-icp">
-  <div class="sec-head"><span class="zone">ZONE E</span><h2>ICP Segmentation</h2><span class="hint">lead concentration by seniority · company type · product domain — tall bar + 0 replies = wrong segment</span></div>
+  <div class="sec-head"><h2>ICP Segmentation</h2><span class="hint">lead concentration by seniority · company type · product domain — tall bar + 0 replies = wrong segment</span></div>
   <div class="sec-body" id="icpSegments"></div>
 </section>
 
 <section id="zone-thesis" style="display:none">
-  <div class="sec-head"><span class="zone">ZONE E</span><h2>Thesis-Fit Concentration</h2><span class="hint">investor targets by how tightly they match Kyumi's thesis · ⚠ = competitor conflict in their portfolio</span></div>
+  <div class="sec-head"><h2>Thesis-Fit Concentration</h2><span class="hint">investor targets by how tightly they match Kyumi's thesis · ⚠ = competitor conflict in their portfolio</span></div>
   <div class="sec-body" id="thesisBody"></div>
 </section>
 
-<section id="zone-queue">
-  <div class="sec-head"><span class="zone">ZONE F</span><h2>Action Queue — Today</h2><span class="hint" id="queueHint"></span></div>
-  <div class="sec-body" id="queue"></div>
-</section>
 
 <section id="zone-inmail">
-  <div class="sec-head"><span class="zone">ZONE G</span><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
+  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
   <div class="sec-body">
     <div class="table-scroll" style="max-height:480px">
       <table class="grid" id="inmailTable"></table>
@@ -1911,9 +1933,31 @@ function renderHypotheses(){
   host.innerHTML = out.join('') + '<div class="hcov">Company-type verdicts (V2, V6) cover '+typed.length+' of '+N+' leads classified'+(ownerView!=='all'?' &middot; '+ownerView+' view':'')+'.</div>';
 }
 
+function renderBoard(){
+  const host = $('kanban'); if(!host) return;
+  const stages = STAGES;
+  const idx = {}; stages.forEach((s,i)=>idx[s]=i);
+  const cols = stages.map(s => ({stage:s, cards:[]}));
+  leads.forEach((l, gi) => {
+    if(ownerView !== 'all' && (l.owner||'').toLowerCase() !== ownerView) return;
+    const k = idx[l.stage]; if(k === undefined) return;
+    cols[k].cards.push({l, gi});
+  });
+  host.innerHTML = cols.map(c =>
+    '<div class="kcol"><div class="kcol-head">' + esc(c.stage) + '<span class="kcount">' + c.cards.length + '</span></div>'
+    + '<div class="kcol-body" data-stage="' + esc(c.stage) + '">'
+    + c.cards.map(function(x){ var l=x.l;
+        return '<div class="kcard lane-' + esc((l.lane||'COLD').toUpperCase()) + '" draggable="true" data-i="' + x.gi + '">'
+          + '<div class="kname">' + esc(l.name||'(no name)') + '</div>'
+          + '<div class="kmeta">' + esc(l.company||'') + (l.owner ? ' \u00b7 ' + esc(l.owner) : '') + '</div></div>';
+      }).join('')
+    + '</div></div>'
+  ).join('');
+}
+
 function renderAll(){
   renderHypotheses();
-  renderTitleBlock(); renderDaily(); renderKPIs();
+  renderTitleBlock(); renderDaily(); renderKPIs(); renderBoard();
   renderAccounts(); renderSegments(); renderThesis(); renderQueue(); renderInmail(); renderFilters(); renderTable(); renderDupes();
   renderHistory();
 }
@@ -1955,6 +1999,17 @@ $('btnClear').onclick = () => {
   pushSnapshot('clear all');
   leads = []; save(); renderAll();
 };
+let _kdragI = null;
+$('kanban').addEventListener('dragstart', e => { const c=e.target.closest('.kcard'); if(c){ _kdragI=+c.dataset.i; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain', c.dataset.i); }catch(_){} } });
+$('kanban').addEventListener('dragend', e => { const c=e.target.closest('.kcard'); if(c) c.classList.remove('dragging'); });
+$('kanban').addEventListener('dragover', e => { const b=e.target.closest('.kcol-body'); if(b){ e.preventDefault(); b.classList.add('kover'); } });
+$('kanban').addEventListener('dragleave', e => { const b=e.target.closest('.kcol-body'); if(b) b.classList.remove('kover'); });
+$('kanban').addEventListener('drop', e => {
+  const b=e.target.closest('.kcol-body'); if(!b) return; e.preventDefault(); b.classList.remove('kover');
+  let i = _kdragI; if(i===null){ const t=e.dataTransfer.getData('text/plain'); i = t==='' ? -1 : +t; } _kdragI=null;
+  if(i>=0 && leads[i] && leads[i].stage !== b.dataset.stage) commitEdit(i, {stage: b.dataset.stage});
+});
+
 $('leadTable').addEventListener('click', e => {
   const td = e.target.closest('td');
   if(!td || td.querySelector('.cell-editor')) return;
