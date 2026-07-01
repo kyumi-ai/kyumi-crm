@@ -348,6 +348,10 @@
 .kcard.lane-COLD{border-left-color:#8391a6}
 .kname{font-weight:600;font-size:12px;color:#222;line-height:1.2}
 .kmeta{font-size:10px;color:#777;margin-top:3px}
+.knote{font-size:10px;color:#1f3a5f;margin-top:5px;padding-top:5px;border-top:1px dashed #e2ddcf;cursor:pointer;line-height:1.35;word-break:break-word}
+.knote:hover{color:#b4530e}
+.knote-empty{color:#c3bcac}
+.kndate{color:#999}
 </style>
 </head>
 <body>
@@ -435,11 +439,6 @@
     <span style="font-size:11px;color:#888">live GTM scoreboard &middot; recomputes on every change &middot; follows the owner toggle (All / Larry / Jimmy)</span>
   </div>
   <div id="hypotheses" class="hgrid"></div>
-</section>
-
-<section id="zone-queue">
-  <div class="sec-head"><h2>Action Queue — Today</h2><span class="hint" id="queueHint"></span></div>
-  <div class="sec-body" id="queue"></div>
 </section>
 
 <section id="zone-leads">
@@ -1958,6 +1957,31 @@ function askTouchDate(name, fromStage, toStage, cb){
   input.addEventListener('keydown',e=>{ if(e.key==='Enter') done(input.value||TODAY_ISO); else if(e.key==='Escape') done(null); });
 }
 
+function askNote(i){
+  const l = leads[i]; if(!l) return;
+  const old=document.getElementById('noteModal'); if(old) old.remove();
+  const ov=document.createElement('div'); ov.id='noteModal';
+  ov.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(30,28,22,.35);display:flex;align-items:center;justify-content:center';
+  ov.innerHTML=`<div style="width:380px;max-width:92vw;background:#fff;border:1px solid #c9c2b0;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.15)">
+    <div style="font-weight:700;font-size:15px;color:#222">Next action &mdash; ${esc(l.name||'')}</div>
+    <div style="font-size:12px;color:#777;margin:6px 0 14px">${esc(l.company||'')}</div>
+    <textarea id="noteInput" rows="3" placeholder="e.g. Send demo link, follow up next week..." style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #c9c2b0;font-size:13px;font-family:inherit;resize:vertical;margin-bottom:12px">${esc(l.nextAction||'')}</textarea>
+    <label style="font-size:11px;color:#777;display:block;margin-bottom:4px">Due date (optional)</label>
+    <input id="noteDate" type="date" value="${esc(l.nextActionDate||'')}" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #c9c2b0;font-size:13px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <button id="noteClear" style="padding:8px 12px;border:1px solid #c9c2b0;background:#fff;font-size:12px;color:#a3331f;cursor:pointer">Clear</button>
+      <div style="display:flex;gap:8px"><button id="noteCancel" style="padding:8px 14px;border:1px solid #c9c2b0;background:#f3f1ea;font-size:13px;cursor:pointer">Cancel</button><button id="noteSave" style="padding:8px 16px;border:0;background:#1f3a5f;color:#fff;font-size:13px;cursor:pointer">Save</button></div>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const ta=ov.querySelector('#noteInput'), dt=ov.querySelector('#noteDate');
+  const close=()=>ov.remove();
+  ov.querySelector('#noteSave').onclick=()=>{ commitEdit(i, {nextAction: ta.value, nextActionDate: dt.value}); close(); };
+  ov.querySelector('#noteClear').onclick=()=>{ commitEdit(i, {nextAction: '', nextActionDate: ''}); close(); };
+  ov.querySelector('#noteCancel').onclick=close;
+  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+  setTimeout(()=>ta.focus(),0);
+}
+
 function renderBoard(){
   const host = $('kanban'); if(!host) return;
   const stages = STAGES;
@@ -1974,7 +1998,9 @@ function renderBoard(){
     + c.cards.map(function(x){ var l=x.l;
         return '<div class="kcard lane-' + esc((l.lane||'COLD').toUpperCase()) + '" draggable="true" data-i="' + x.gi + '">'
           + '<div class="kname">' + esc(l.name||'(no name)') + '</div>'
-          + '<div class="kmeta">' + esc(l.company||'') + (l.owner ? ' \u00b7 ' + esc(l.owner) : '') + '</div></div>';
+          + '<div class="kmeta">' + esc(l.company||'') + (l.owner ? ' \u00b7 ' + esc(l.owner) : '') + '</div>'
+          + (l.nextAction ? '<div class="knote" data-note="' + x.gi + '">\u21aa ' + esc(l.nextAction) + (l.nextActionDate ? ' <span class="kndate">' + esc(l.nextActionDate) + '</span>' : '') + '</div>' : '<div class="knote knote-empty" data-note="' + x.gi + '">+ note</div>')
+          + '</div>';
       }).join('')
     + '</div></div>'
   ).join('');
@@ -1983,7 +2009,7 @@ function renderBoard(){
 function renderAll(){
   renderHypotheses();
   renderTitleBlock(); renderDaily(); renderKPIs(); renderBoard();
-  renderAccounts(); renderSegments(); renderThesis(); renderQueue(); renderInmail(); renderFilters(); renderTable(); renderDupes();
+  renderAccounts(); renderSegments(); renderThesis(); renderInmail(); renderFilters(); renderTable(); renderDupes();
   renderHistory();
 }
 
@@ -2025,6 +2051,7 @@ $('btnClear').onclick = () => {
   leads = []; save(); renderAll();
 };
 let _kdragI = null;
+$('kanban').addEventListener('click', e => { const n=e.target.closest('.knote'); if(n){ e.stopPropagation(); askNote(+n.dataset.note); } });
 $('kanban').addEventListener('dragstart', e => { const c=e.target.closest('.kcard'); if(c){ _kdragI=+c.dataset.i; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain', c.dataset.i); }catch(_){} } });
 $('kanban').addEventListener('dragend', e => { const c=e.target.closest('.kcard'); if(c) c.classList.remove('dragging'); });
 $('kanban').addEventListener('dragover', e => { const b=e.target.closest('.kcol-body'); if(b){ e.preventDefault(); b.classList.add('kover'); } });
