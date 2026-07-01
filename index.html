@@ -1933,6 +1933,9 @@ function renderHypotheses(){
   host.innerHTML = out.join('') + '<div class="hcov">Company-type verdicts (V2, V6) cover '+typed.length+' of '+N+' leads classified'+(ownerView!=='all'?' &middot; '+ownerView+' view':'')+'.</div>';
 }
 
+// Moving a card into one of these is an OUTCOME, not a fresh outreach touch:
+// change the stage but don't prompt for a date or bump lastTouch.
+const NO_TOUCH_STAGES = new Set(['Lost','Meeting Done','Demo Done','Verbal']);
 function askTouchDate(name, fromStage, toStage, cb){
   const old=document.getElementById('touchDateModal'); if(old) old.remove();
   const ov=document.createElement('div'); ov.id='touchDateModal';
@@ -2031,7 +2034,8 @@ $('kanban').addEventListener('drop', e => {
   let i = _kdragI; if(i===null){ const t=e.dataTransfer.getData('text/plain'); i = t==='' ? -1 : +t; } _kdragI=null;
   if(i>=0 && leads[i] && leads[i].stage !== b.dataset.stage){
     const ns=b.dataset.stage, li=i;
-    askTouchDate(leads[i].name, leads[i].stage, ns, function(date){ if(date) commitEdit(li, {stage: ns, lastTouch: date}); else renderBoard(); });
+    if(NO_TOUCH_STAGES.has(ns)){ commitEdit(li, {stage: ns}); }  // outcome stage: stage only, no touch
+    else askTouchDate(leads[i].name, leads[i].stage, ns, function(date){ if(date) commitEdit(li, {stage: ns, lastTouch: date}); else renderBoard(); });
   }
 });
 
