@@ -449,11 +449,6 @@
   </div>
 </section>
 
-<section id="zone-today">
-  <div class="sec-head"><h2>Due Today</h2><span class="hint">promised follow-ups that came due + active leads gone quiet · click a row to open its note · follows the owner toggle</span></div>
-  <div id="todayQueue" class="tqueue"></div>
-</section>
-
 <section id="zone-board">
   <div class="sec-head"><h2>Pipeline Board</h2><span class="hint">drag a card to another column to change its stage — saves live · follows the owner toggle</span></div>
   <div id="kanban" class="kboard"></div>
@@ -2122,7 +2117,7 @@ function renderBoard(){
 
 function renderAll(){
   renderHypotheses();
-  renderTitleBlock(); renderDaily(); renderToday(); renderKPIs(); renderBoard();
+  renderTitleBlock(); renderDaily(); renderKPIs(); renderBoard();
   renderAccounts(); renderChannels(); renderSegments(); renderThesis(); renderInmail(); renderFilters(); renderTable(); renderDupes();
   renderHistory();
 }
