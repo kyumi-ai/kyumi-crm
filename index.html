@@ -462,6 +462,15 @@
   <div id="hypotheses" class="hgrid"></div>
 </section>
 
+<section id="zone-inmail">
+  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
+  <div class="sec-body">
+    <div class="table-scroll" style="max-height:480px">
+      <table class="grid" id="inmailTable"></table>
+    </div>
+  </div>
+</section>
+
 <section id="zone-leads">
   <div class="sec-head"><h2>All Leads</h2><span class="hint">click any Stage / Lane / date / note cell to edit it — saves live for you & Jimmy · <b>+ Add lead</b> to add someone · ✕ to delete</span></div>
   <div id="dupes" class="dupes" style="display:none"></div>
@@ -516,15 +525,6 @@
 </section>
 
 
-<section id="zone-inmail">
-  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
-  <div class="sec-body">
-    <div class="table-scroll" style="max-height:480px">
-      <table class="grid" id="inmailTable"></table>
-    </div>
-  </div>
-</section>
-
 
 <footer>KYUMI-CRM-001 · REV A · TOLERANCES: FOLLOW-UPS ±0 DAYS · DO NOT SCALE FROM THIS DRAWING</footer>
 
@@ -532,6 +532,15 @@
 <script src="enrichment.js"></script>
 <script>
 'use strict';
+/* Resilience net: the whole app is one inline script, so any uncaught error (e.g. a
+   render or listener referencing a removed element) would otherwise halt everything —
+   including the login + cloud bootstrap at the very end — leaving a blank, login-less,
+   "0 records" page that looks like data loss (but the data is safe in Supabase). If
+   anything throws during startup, still run initAuth() so login + cloud data come up. */
+window.addEventListener('error', function(ev){
+  console.error('Dashboard error — recovering login/cloud:', ev.error || ev.message);
+  try{ if(typeof initAuth === 'function') initAuth(); }catch(_){}
+});
 /* ============================== DATA ============================== */
 const FIELDS = ['name','title','company','linkedinUrl','email','source','lane','owner','stage','channel','lastTouch','tp1','tp2','tp3',
                 'meetingDone','demoDone','verbal','connectionAccepted','nextAction','nextActionDate','persona','icpFit','segment','companyStatus',
@@ -764,7 +773,7 @@ async function dbSync(){
 
 /* ---- Auth gate: only allow-listed emails sign in via magic link. The DB's RLS policy
    enforces the same list server-side, so this is convenience + a clean login screen. ---- */
-let _bootstrapped = false;
+let _bootstrapped = false, _authKicked = false;
 function afterLogin(){ if(_bootstrapped) return; _bootstrapped = true; dbBootstrap(); }
 function emailAllowed(e){ return !ALLOWED_EMAILS.length || ALLOWED_EMAILS.includes((e || '').toLowerCase()); }
 function showLogin(msg){
@@ -797,6 +806,7 @@ async function sendMagicLink(){
 }
 async function signOut(){ if(sb) await sb.auth.signOut(); location.reload(); }
 async function initAuth(){
+  if(_authKicked) return; _authKicked = true;   // run at most once (also reached via the error-recovery net)
   if(!sb){ dbBootstrap(); return; }                                                  // no client → local-only fallback
   if(['localhost', '127.0.0.1'].includes(location.hostname)){ dbBootstrap(); return; } // dev: skip the gate locally
   const {data} = await sb.auth.getSession();
@@ -1592,8 +1602,7 @@ function renderInmail(){
       const {score, tags} = inmailScore(l, acct);
       return {l, score, tags, acct, d: daysSince(l.lastTouch)};
     })
-    .sort((a, b) => b.score - a.score || (b.d ?? 0) - (a.d ?? 0))
-    .slice(0, 30);
+    .sort((a, b) => b.score - a.score || (b.d ?? 0) - (a.d ?? 0));
   $('inmailTable').innerHTML = `
     <tr><th>#</th><th>Name</th><th>Title</th><th>Company</th><th>Lane</th><th class="num">Waiting</th><th class="num">Fit</th><th>Scoring</th></tr>
     ` + cands.map((c, i) => `
