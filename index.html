@@ -188,12 +188,9 @@
   .chip.stage-awaiting-reply{color:var(--accent);font-style:italic}
   .chip.stage-meeting-booked,.chip.stage-meeting-done{color:var(--accent)}
   .chip.stage-reschedule-meeting{color:var(--hot)}
-  .chip.stage-researching{color:var(--ink-faint)}
-  .chip.stage-reached-out{color:var(--steel)}
-  .chip.stage-building-relationship{color:var(--steel);font-style:italic}
-  .chip.stage-meeting,.chip.stage-pitched{color:var(--accent)}
-  .chip.stage-diligence{color:var(--accent);font-weight:700}
-  .chip.stage-term-sheet,.chip.stage-closed{color:var(--ok);background:var(--ok-soft)}
+  .chip.stage-to-contact{color:var(--ink-faint)}
+  .chip.stage-meeting{color:var(--accent);font-weight:700}
+  .chip.stage-closed{color:var(--ok);background:var(--ok-soft)}
   .chip.stage-passed{color:var(--ink-faint);text-decoration:line-through}
   .chip.thesis-bullseye{color:#fff;background:var(--ok);border-color:var(--ok)}
   .chip.thesis-strong{color:var(--ok)}
@@ -332,6 +329,30 @@
 .hread{font-size:11px;color:#666;line-height:1.4}
 .hcov{grid-column:1/-1;font-size:11px;color:#888;padding-top:2px}
 
+/* Due Today queue */
+#zone-today{margin:16px 0}
+.tqueue{display:flex;flex-direction:column;gap:6px}
+.tq-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid #c9c2b0;background:#fff;cursor:pointer;font-size:13px}
+.tq-row:hover{background:#faf8f2}
+.tq-row .tq-name{font-weight:700;color:#222}
+.tq-row .tq-co{color:#777;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tq-row .tq-why{font-size:11px;color:#8a6d3b;white-space:nowrap}
+.tq-row .tq-overdue{color:#a3331f;font-weight:700}
+.tq-empty{padding:14px;color:#777;font-size:13px;border:1px dashed #c9c2b0;background:#faf8f2}
+
+/* Kanban stall badge */
+.kstall{float:right;font-size:10px;font-weight:700;color:#a3331f;background:#f7e9e6;padding:1px 5px;border-radius:2px;margin-left:4px}
+.kcard.kstalled{border-left:3px solid #a3331f}
+
+/* Channel Performance */
+#zone-channels{margin:16px 0}
+.chan-stats{display:flex;flex-direction:column;gap:6px}
+.chan-row{display:grid;grid-template-columns:180px 60px 1fr 60px;align-items:center;gap:10px;font-size:13px}
+.chan-row .cn{font-weight:600;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chan-row .cbar{height:14px;background:#e8e3d6;position:relative}
+.chan-row .cbar>span{position:absolute;top:0;bottom:0;left:0;background:#1f3a5f}
+.chan-row .cpct{text-align:right;font-variant-numeric:tabular-nums;color:#555}
+
 /* Pipeline Board (Kanban) */
 #zone-board{margin:16px 0}
 .kboard{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}
@@ -428,6 +449,11 @@
   </div>
 </section>
 
+<section id="zone-today">
+  <div class="sec-head"><h2>Due Today</h2><span class="hint">promised follow-ups that came due + active leads gone quiet · click a row to open its note · follows the owner toggle</span></div>
+  <div id="todayQueue" class="tqueue"></div>
+</section>
+
 <section id="zone-board">
   <div class="sec-head"><h2>Pipeline Board</h2><span class="hint">drag a card to another column to change its stage — saves live · follows the owner toggle</span></div>
   <div id="kanban" class="kboard"></div>
@@ -474,18 +500,14 @@
   </div>
 </section>
 
-<section id="zone-inmail">
-  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
-  <div class="sec-body">
-    <div class="table-scroll" style="max-height:480px">
-      <table class="grid" id="inmailTable"></table>
-    </div>
-  </div>
-</section>
-
 <section id="zone-accounts">
   <div class="sec-head"><h2>Account Concentration</h2><span class="hint">top accounts by lead count — big blast + 0 replies = wasted sends</span></div>
   <div class="sec-body" id="accounts"></div>
+</section>
+
+<section id="zone-channels">
+  <div class="sec-head"><h2>Channel Performance</h2><span class="hint">reply rate by outreach channel — replied-or-better ÷ contacted · follows the owner toggle</span></div>
+  <div id="channelStats" class="chan-stats"></div>
 </section>
 
 <section id="zone-icp">
@@ -499,9 +521,20 @@
 </section>
 
 
+<section id="zone-inmail">
+  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
+  <div class="sec-body">
+    <div class="table-scroll" style="max-height:480px">
+      <table class="grid" id="inmailTable"></table>
+    </div>
+  </div>
+</section>
+
+
 <footer>KYUMI-CRM-001 · REV A · TOLERANCES: FOLLOW-UPS ±0 DAYS · DO NOT SCALE FROM THIS DRAWING</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="enrichment.js"></script>
 <script>
 'use strict';
 /* ============================== DATA ============================== */
@@ -528,8 +561,21 @@ const DT_TP2 = "Hi [name], thanks for connecting! As mentioned, I've been talkin
 let STAGES = ['Contacted','Double Texted','Replied','Awaiting Reply','Meeting Booked','Reschedule Meeting','Meeting Done','Demo Done','Verbal','Lost'];
 let MEETING_STAGES = new Set(['Meeting Booked','Meeting Done','Demo Done','Verbal']);
 const CUSTOMER_STAGES = STAGES;
-const INVESTOR_STAGES = ['Researching','Reached Out','Building Relationship','Meeting','Pitched','Diligence','Term Sheet','Closed','Passed'];
-const INVESTOR_MEETING_STAGES = new Set(['Meeting','Pitched','Diligence','Term Sheet','Closed']);
+const INVESTOR_STAGES = ['To Contact','Reached Out','Replied','Meeting','Closed','Passed'];
+const INVESTOR_MEETING_STAGES = new Set(['Meeting','Closed']);
+// Moving a card into one of these is an OUTCOME, not a fresh outreach touch (see NO_TOUCH_STAGES).
+const INVESTOR_NO_TOUCH_STAGES = new Set(['Closed','Passed']);
+// Due Today queue: an active lead untouched this long (or a note past its due date) needs chasing.
+const FOLLOWUP_DAYS = 5;
+const CUSTOMER_FOLLOWUP_STAGES = new Set(['Contacted','Double Texted','Replied','Awaiting Reply','Reschedule Meeting']);
+const INVESTOR_FOLLOWUP_STAGES = new Set(['To Contact','Reached Out','Replied']);
+function followupStages(){ return mode === 'investors' ? INVESTOR_FOLLOWUP_STAGES : CUSTOMER_FOLLOWUP_STAGES; }
+// Old (pre-simplification) investor stage names → the new 6-stage set. Applied in canonStage so
+// stored/live cards and pasted rows self-heal on load. Keys are lower-cased.
+const INVESTOR_STAGE_MIGRATION = {
+  'researching':'To Contact', 'reached out':'Reached Out', 'awaiting reply':'Reached Out', 'building relationship':'Replied',
+  'pitched':'Meeting', 'diligence':'Meeting', 'term sheet':'Meeting'
+};
 let mode = 'customers';
 const LS_KEY_INV = 'kyumi-inv-v1';
 const INMAIL_RIPEN_DAYS = 7;  // only InMail a pending invite once a free accept is unlikely
@@ -627,21 +673,21 @@ function loadInvestors(){
   return SEED_INVESTORS.map(normalizeLead);
 }
 const SEED_INVESTORS = [
-  {name:'Ibrahim Hafeez', fund:'ANFA Capital', partner:'Ibrahim Hafeez', thesisFit:'Generalist', owner:'Larry', stage:'Building Relationship', lastTouch:'2026-04-19', nextAction:'Reconnect at MVP', tp1:'Liked the idea, passed for now — come back at MVP. Sharp on LOIs ("letters of nothing") + focus.'},
-  {name:'Root Ventures', fund:'Root Ventures', checkSize:'Seed', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'⚠ Possible conflict — backed AllSpice (EE competitor). Engineer-led deep-tech seed, best thesis fit.'},
-  {name:'Schematic Ventures', fund:'Schematic Ventures', checkSize:'$1–2M lead', thesisFit:'Bullseye', owner:'Larry', stage:'Researching', tp1:'Leads pre-seed/seed; industrial "makes & moves the world" thesis.'},
-  {name:'Garage Capital', fund:'Garage Capital', checkSize:'$200–750k', thesisFit:'Bullseye', introPath:'Waterloo / local', owner:'Larry', stage:'Researching', tp1:'Waterloo; dev-tools / vertical-SaaS — home court.'},
-  {name:'Golden Ventures', fund:'Golden Ventures', checkSize:'$500k–2M', thesisFit:'Bullseye', owner:'Larry', stage:'Researching', tp1:'Toronto seed B2B software.'},
-  {name:'Panache Ventures', fund:'Panache Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Backed CoLab; most active Canadian seed.'},
-  {name:'Humba Ventures', fund:'Humba Ventures', checkSize:'$250–750k', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Pre-seed/seed robotics & manufacturing.'},
-  {name:'2048 Ventures', fund:'2048 Ventures', checkSize:'$500k–2M', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Pre-seed/seed Vertical AI + Deep Tech.'},
-  {name:'Bain Capital Ventures', fund:'Bain Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Led Cofactr (electronics-hardware SaaS).'},
-  {name:'Floating Point Ventures', fund:'Floating Point Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Backed Cofactr.'},
-  {name:'Commonwealth Capital', fund:'Commonwealth Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'Researching', tp1:'Backed Paperless Parts; Boston early B2B.'},
-  {name:'Sunflower Capital', fund:'Sunflower Capital', thesisFit:'Generalist', owner:'Larry', stage:'Researching', tp1:'Seed B2B/enterprise/AI (ex-Sequoia GP). Generalist, not bullseye.'},
-  {name:'Soma Capital', fund:'Soma Capital', thesisFit:'Generalist', owner:'Larry', stage:'Researching', tp1:'Prolific seed; founder network.'},
-  {name:'Construct Capital', fund:'Construct Capital', checkSize:'$2–5M', thesisFit:'Later', owner:'Larry', stage:'Researching', tp1:'Industrial thesis but writes bigger — Series A timing.'},
-  {name:'Insight Partners', fund:'Insight Partners', thesisFit:'Later', owner:'Larry', stage:'Researching', tp1:'⚠ Backed CoLab (competitor). Growth-stage — keep warm for Series A.'},
+  {name:'Ibrahim Hafeez', fund:'ANFA Capital', partner:'Ibrahim Hafeez', thesisFit:'Generalist', owner:'Larry', stage:'Replied', lastTouch:'2026-04-19', nextAction:'Reconnect at MVP', tp1:'Liked the idea, passed for now — come back at MVP. Sharp on LOIs ("letters of nothing") + focus.'},
+  {name:'Root Ventures', fund:'Root Ventures', checkSize:'Seed', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'⚠ Possible conflict — backed AllSpice (EE competitor). Engineer-led deep-tech seed, best thesis fit.'},
+  {name:'Schematic Ventures', fund:'Schematic Ventures', checkSize:'$1–2M lead', thesisFit:'Bullseye', owner:'Larry', stage:'To Contact', tp1:'Leads pre-seed/seed; industrial "makes & moves the world" thesis.'},
+  {name:'Garage Capital', fund:'Garage Capital', checkSize:'$200–750k', thesisFit:'Bullseye', introPath:'Waterloo / local', owner:'Larry', stage:'To Contact', tp1:'Waterloo; dev-tools / vertical-SaaS — home court.'},
+  {name:'Golden Ventures', fund:'Golden Ventures', checkSize:'$500k–2M', thesisFit:'Bullseye', owner:'Larry', stage:'To Contact', tp1:'Toronto seed B2B software.'},
+  {name:'Panache Ventures', fund:'Panache Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Backed CoLab; most active Canadian seed.'},
+  {name:'Humba Ventures', fund:'Humba Ventures', checkSize:'$250–750k', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Pre-seed/seed robotics & manufacturing.'},
+  {name:'2048 Ventures', fund:'2048 Ventures', checkSize:'$500k–2M', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Pre-seed/seed Vertical AI + Deep Tech.'},
+  {name:'Bain Capital Ventures', fund:'Bain Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Led Cofactr (electronics-hardware SaaS).'},
+  {name:'Floating Point Ventures', fund:'Floating Point Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Backed Cofactr.'},
+  {name:'Commonwealth Capital', fund:'Commonwealth Capital Ventures', thesisFit:'Strong', owner:'Larry', stage:'To Contact', tp1:'Backed Paperless Parts; Boston early B2B.'},
+  {name:'Sunflower Capital', fund:'Sunflower Capital', thesisFit:'Generalist', owner:'Larry', stage:'To Contact', tp1:'Seed B2B/enterprise/AI (ex-Sequoia GP). Generalist, not bullseye.'},
+  {name:'Soma Capital', fund:'Soma Capital', thesisFit:'Generalist', owner:'Larry', stage:'To Contact', tp1:'Prolific seed; founder network.'},
+  {name:'Construct Capital', fund:'Construct Capital', checkSize:'$2–5M', thesisFit:'Later', owner:'Larry', stage:'To Contact', tp1:'Industrial thesis but writes bigger — Series A timing.'},
+  {name:'Insight Partners', fund:'Insight Partners', thesisFit:'Later', owner:'Larry', stage:'To Contact', tp1:'⚠ Backed CoLab (competitor). Growth-stage — keep warm for Series A.'},
 ];
 
 /* ============================== CLOUD SYNC (Supabase) ============================== */
@@ -997,10 +1043,20 @@ function normalizeLead(o){
   // Stage semantics: Contacted = invite still pending; Double Texted or beyond = they accepted.
   // Lost is excluded (could be lost pre-accept), but a past meeting proves acceptance.
   if((l.stage !== 'Contacted' && l.stage !== 'Lost' && STAGES.includes(l.stage)) || l.meetingDone === 'true') l.connectionAccepted = 'true';
+  // Enrichment: fill blank companyType/productDomain/segment from the ICP map (enrichment.js),
+  // then a conservative heuristic. Never overwrites a value already present — hand-set tags win.
+  if(typeof ENRICH_MAP !== 'undefined'){
+    const ek = l.company.toLowerCase().replace(/\s+/g,' ').trim();
+    const hit = ENRICH_MAP[ek] || (typeof deriveEnrichment === 'function' ? deriveEnrichment(l) : {});
+    if(!l.companyType && hit.companyType) l.companyType = hit.companyType;
+    if(!l.productDomain && hit.productDomain) l.productDomain = hit.productDomain;
+    if(!l.segment && hit.segment) l.segment = hit.segment;
+  }
   return l;
 }
 function canonStage(s){
   const t = s.trim().toLowerCase();
+  if(mode === 'investors' && INVESTOR_STAGE_MIGRATION[t]) return INVESTOR_STAGE_MIGRATION[t];
   for(const st of STAGES){ if(st.toLowerCase() === t) return st; }
   return s.trim();
 }
@@ -1330,6 +1386,33 @@ function renderDaily(){
     <div class="week"><label>7-day total</label><div class="wnum">${week}</div></div>`;
 }
 
+function renderToday(){
+  const host = $('todayQueue'); if(!host) return;
+  const fu = followupStages();
+  const rows = [];
+  leads.forEach((l, gi) => {
+    if(ownerView !== 'all' && (l.owner || '').toLowerCase() !== ownerView) return;
+    const dueNote = !!(l.nextActionDate && parseISO(l.nextActionDate) && l.nextActionDate <= TODAY_ISO);
+    const stale = fu.has(l.stage) && (daysSince(l.lastTouch) ?? -1) >= FOLLOWUP_DAYS;
+    if(!dueNote && !stale) return;
+    // Urgency = how overdue: a promised note wins; otherwise days since last touch.
+    const overdue = dueNote ? (daysSince(l.nextActionDate) ?? 0) : daysSince(l.lastTouch);
+    let why;
+    if(dueNote) why = l.nextActionDate === TODAY_ISO ? 'follow-up due today' : 'follow-up ' + overdue + 'd overdue';
+    else why = l.stage + ' · quiet ' + overdue + 'd';
+    rows.push({ gi, l, overdue, why });
+  });
+  rows.sort((a, b) => b.overdue - a.overdue);
+  if(!rows.length){ host.innerHTML = '<div class="tq-empty">Nothing due — inbox zero. 🎉</div>'; return; }
+  host.innerHTML = rows.map(r =>
+    '<div class="tq-row" data-note="' + r.gi + '">'
+    + '<span class="tq-name">' + esc(r.l.name || '(no name)') + '</span>'
+    + '<span class="tq-co">' + esc(r.l.company || '') + (r.l.nextAction ? ' — ' + esc(r.l.nextAction) : '') + '</span>'
+    + '<span class="tq-why' + (r.overdue > 0 ? ' tq-overdue' : '') + '">' + esc(r.why) + '</span>'
+    + '</div>'
+  ).join('');
+}
+
 function renderKPIs(){
   if(mode === 'investors') return renderInvestorKPIs();
   const ls = scopedLeads();
@@ -1414,6 +1497,27 @@ function renderVolume(){
       <span class="vol-date">${d.slice(5)}</span>
     </div>`;
   }).join('');
+}
+
+function renderChannels(){
+  const host = $('channelStats'); if(!host) return;
+  const z = $('zone-channels');
+  if(mode === 'investors'){ if(z) z.style.display = 'none'; return; } if(z) z.style.display = '';
+  const agg = {};
+  scopedLeads().forEach(l => {
+    const ch = (l.channel || '').trim() || 'Untracked';
+    (agg[ch] = agg[ch] || {n: 0, replied: 0}).n++;
+    if(REPLIED_PLUS.includes(l.stage) || MEETING_STAGES.has(l.stage)) agg[ch].replied++;
+  });
+  const rows = Object.entries(agg).map(([ch, v]) => ({ch, n: v.n, pct: v.n ? v.replied / v.n * 100 : 0}))
+    .sort((a, b) => b.n - a.n);
+  if(!rows.length){ host.innerHTML = '<div class="tq-empty">No channel data yet — log a few touches with a channel.</div>'; return; }
+  host.innerHTML = rows.map(r =>
+    '<div class="chan-row"><span class="cn">' + esc(r.ch) + '</span>'
+    + '<span class="cpct">' + r.n + ' ct</span>'
+    + '<span class="cbar"><span style="width:' + r.pct.toFixed(0) + '%"></span></span>'
+    + '<span class="cpct">' + r.pct.toFixed(0) + '%</span></div>'
+  ).join('');
 }
 
 function renderAccounts(){
@@ -1770,15 +1874,13 @@ function switchMode(m){
 }
 function renderInvestorKPIs(){
   const ls = scopedLeads(), c = stageCounts(), g = s => c[s] || 0;
-  const inConvo = g('Reached Out') + g('Building Relationship') + g('Meeting');
   const queueN = buildQueue().reduce((n, gr) => n + gr.items.length, 0);
   $('kpis').innerHTML = `
     <div class="kpi"><label>Targets</label><div class="num">${ls.length}</div><div class="sub">in pipeline</div></div>
-    <div class="kpi steel"><label>Researching</label><div class="num">${g('Researching')}</div><div class="sub">not yet contacted</div></div>
-    <div class="kpi steel"><label>In Conversation</label><div class="num">${inConvo}</div><div class="sub">reached out / nurturing / met</div></div>
-    <div class="kpi accent"><label>Pitched</label><div class="num">${g('Pitched')}</div><div class="sub">delivered the pitch</div></div>
-    <div class="kpi accent"><label>Diligence</label><div class="num">${g('Diligence')}</div><div class="sub">in diligence</div></div>
-    <div class="kpi ok"><label>Term Sheets</label><div class="num">${g('Term Sheet')}</div><div class="sub">received</div></div>
+    <div class="kpi steel"><label>To Contact</label><div class="num">${g('To Contact')}</div><div class="sub">not yet reached out</div></div>
+    <div class="kpi steel"><label>Reached Out</label><div class="num">${g('Reached Out')}</div><div class="sub">contacted · no reply yet</div></div>
+    <div class="kpi accent"><label>Replied</label><div class="num">${g('Replied')}</div><div class="sub">connected back</div></div>
+    <div class="kpi accent"><label>Meeting</label><div class="num">${g('Meeting')}</div><div class="sub">in talks</div></div>
     <div class="kpi ok"><label>Closed</label><div class="num">${g('Closed')}</div><div class="sub">committed</div></div>
     <div class="kpi"><label>Action Queue</label><div class="num">${queueN}</div><div class="sub">touches due</div></div>`;
 }
@@ -1801,7 +1903,7 @@ function buildInvestorQueue(){
 function renderThesis(){
   const el = $('thesisBody'); if(!el) return;
   const counts = new Map();
-  scopedLeads().forEach(l => { const k = (l.thesisFit || '').trim() || '(untagged)'; if(!counts.has(k)) counts.set(k, {count:0, adv:0}); const e = counts.get(k); e.count++; if(l.stage === 'Closed' || l.stage === 'Term Sheet' || l.stage === 'Diligence') e.adv++; });
+  scopedLeads().forEach(l => { const k = (l.thesisFit || '').trim() || '(untagged)'; if(!counts.has(k)) counts.set(k, {count:0, adv:0}); const e = counts.get(k); e.count++; if(l.stage === 'Closed' || l.stage === 'Meeting') e.adv++; });
   const order = [...THESIS_TIERS, '(untagged)'];
   const entries = [...counts.entries()].sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99));
   const max = Math.max(1, ...entries.map(e => e[1].count));
@@ -1934,26 +2036,36 @@ function renderHypotheses(){
 // Moving a card into one of these is an OUTCOME, not a fresh outreach touch:
 // change the stage but don't prompt for a date or bump lastTouch.
 const NO_TOUCH_STAGES = new Set(['Lost','Meeting Done','Demo Done','Verbal']);
-function askTouchDate(name, fromStage, toStage, cb){
+// Outreach channels — recorded per touch so we can compare reply rates by channel.
+const CHANNELS = ['LinkedIn Connection Note','LinkedIn DM','LinkedIn InMail','Email','Phone / Text','Referral / Intro','Other'];
+// cb receives {date, channel} on confirm, or null on cancel.
+function askTouchDate(name, fromStage, toStage, curChannel, cb){
+  const cur = CHANNELS.includes(curChannel) ? curChannel : CHANNELS[0];
   const old=document.getElementById('touchDateModal'); if(old) old.remove();
   const ov=document.createElement('div'); ov.id='touchDateModal';
   ov.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(30,28,22,.35);display:flex;align-items:center;justify-content:center';
   ov.innerHTML=`<div style="width:320px;max-width:90vw;background:#fff;border:1px solid #c9c2b0;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.15)">
     <div style="font-weight:700;font-size:15px;color:#222">When was this change made?</div>
-    <div style="font-size:12px;color:#777;margin:6px 0 16px">${esc(name)}: ${esc(fromStage)} &rarr; <b>${esc(toStage)}</b></div>
+    <div style="font-size:12px;color:#777;margin:6px 0 14px">${esc(name)}: ${esc(fromStage)} &rarr; <b>${esc(toStage)}</b></div>
+    <label style="font-size:11px;color:#777;display:block;margin-bottom:4px">Channel</label>
+    <select id="touchChannel" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #c9c2b0;font-size:13px;margin-bottom:12px">
+      ${CHANNELS.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('')}
+    </select>
+    <label style="font-size:11px;color:#777;display:block;margin-bottom:4px">Date</label>
     <input id="touchDateInput" type="date" value="${TODAY_ISO}" max="${TODAY_ISO}" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #c9c2b0;font-size:14px;margin-bottom:14px">
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button id="touchCancel" style="padding:8px 14px;border:1px solid #c9c2b0;background:#f3f1ea;font-size:13px;cursor:pointer">Cancel</button>
       <button id="touchOk" style="padding:8px 16px;border:0;background:#1f3a5f;color:#fff;font-size:13px;cursor:pointer">Confirm</button>
     </div></div>`;
   document.body.appendChild(ov);
-  const input=ov.querySelector('#touchDateInput');
-  const done=(v)=>{ ov.remove(); cb(v); };
-  ov.querySelector('#touchOk').onclick=()=>done(input.value||TODAY_ISO);
-  ov.querySelector('#touchCancel').onclick=()=>done(null);
-  ov.addEventListener('click',e=>{ if(e.target===ov) done(null); });
+  const input=ov.querySelector('#touchDateInput'), chan=ov.querySelector('#touchChannel');
+  const ok=()=>{ ov.remove(); cb({date: input.value||TODAY_ISO, channel: chan.value}); };
+  const cancel=()=>{ ov.remove(); cb(null); };
+  ov.querySelector('#touchOk').onclick=ok;
+  ov.querySelector('#touchCancel').onclick=cancel;
+  ov.addEventListener('click',e=>{ if(e.target===ov) cancel(); });
   setTimeout(()=>input.focus(),0);
-  input.addEventListener('keydown',e=>{ if(e.key==='Enter') done(input.value||TODAY_ISO); else if(e.key==='Escape') done(null); });
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter') ok(); else if(e.key==='Escape') cancel(); });
 }
 
 function askNote(i){
@@ -1995,8 +2107,11 @@ function renderBoard(){
     '<div class="kcol"><div class="kcol-head">' + esc(c.stage) + '<span class="kcount">' + c.cards.length + '</span></div>'
     + '<div class="kcol-body" data-stage="' + esc(c.stage) + '">'
     + c.cards.map(function(x){ var l=x.l;
-        return '<div class="kcard lane-' + esc((l.lane||'COLD').toUpperCase()) + '" draggable="true" data-i="' + x.gi + '">'
-          + '<div class="kname">' + esc(l.name||'(no name)') + '</div>'
+        var age = daysSince(l.lastTouch);
+        var stalled = followupStages().has(l.stage) && age !== null && age >= FOLLOWUP_DAYS;
+        var badge = stalled ? '<span class="kstall" title="untouched ' + age + ' days">\u25f7 ' + age + 'd</span>' : '';
+        return '<div class="kcard lane-' + esc((l.lane||'COLD').toUpperCase()) + (stalled ? ' kstalled' : '') + '" draggable="true" data-i="' + x.gi + '">'
+          + '<div class="kname">' + esc(l.name||'(no name)') + badge + '</div>'
           + '<div class="kmeta">' + esc(l.company||'') + (l.owner ? ' \u00b7 ' + esc(l.owner) : '') + '</div>'
           + (l.nextAction ? '<div class="knote" data-note="' + x.gi + '">\u21aa ' + esc(l.nextAction) + (l.nextActionDate ? ' <span class="kndate">' + esc(l.nextActionDate) + '</span>' : '') + '</div>' : '<div class="knote knote-empty" data-note="' + x.gi + '">+ note</div>')
           + '</div>';
@@ -2007,8 +2122,8 @@ function renderBoard(){
 
 function renderAll(){
   renderHypotheses();
-  renderTitleBlock(); renderDaily(); renderKPIs(); renderBoard();
-  renderAccounts(); renderSegments(); renderThesis(); renderInmail(); renderFilters(); renderTable(); renderDupes();
+  renderTitleBlock(); renderDaily(); renderToday(); renderKPIs(); renderBoard();
+  renderAccounts(); renderChannels(); renderSegments(); renderThesis(); renderInmail(); renderFilters(); renderTable(); renderDupes();
   renderHistory();
 }
 
@@ -2050,6 +2165,7 @@ $('btnClear').onclick = () => {
   leads = []; save(); renderAll();
 };
 let _kdragI = null;
+$('todayQueue').addEventListener('click', e => { const n=e.target.closest('.tq-row'); if(n) askNote(+n.dataset.note); });
 $('kanban').addEventListener('click', e => { const n=e.target.closest('.knote'); if(n){ e.stopPropagation(); askNote(+n.dataset.note); } });
 $('kanban').addEventListener('dragstart', e => { const c=e.target.closest('.kcard'); if(c){ _kdragI=+c.dataset.i; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain', c.dataset.i); }catch(_){} } });
 $('kanban').addEventListener('dragend', e => { const c=e.target.closest('.kcard'); if(c) c.classList.remove('dragging'); });
@@ -2060,8 +2176,9 @@ $('kanban').addEventListener('drop', e => {
   let i = _kdragI; if(i===null){ const t=e.dataTransfer.getData('text/plain'); i = t==='' ? -1 : +t; } _kdragI=null;
   if(i>=0 && leads[i] && leads[i].stage !== b.dataset.stage){
     const ns=b.dataset.stage, li=i;
-    if(NO_TOUCH_STAGES.has(ns)){ commitEdit(li, {stage: ns}); }  // outcome stage: stage only, no touch
-    else askTouchDate(leads[i].name, leads[i].stage, ns, function(date){ if(date) commitEdit(li, {stage: ns, lastTouch: date}); else renderBoard(); });
+    const noTouch = mode === 'investors' ? INVESTOR_NO_TOUCH_STAGES : NO_TOUCH_STAGES;
+    if(noTouch.has(ns)){ commitEdit(li, {stage: ns}); }  // outcome stage: stage only, no touch
+    else askTouchDate(leads[i].name, leads[i].stage, ns, leads[i].channel, function(res){ if(res && res.date) commitEdit(li, {stage: ns, lastTouch: res.date, channel: res.channel}); else renderBoard(); });
   }
 });
 
