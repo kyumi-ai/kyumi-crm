@@ -2160,7 +2160,6 @@ $('btnClear').onclick = () => {
   leads = []; save(); renderAll();
 };
 let _kdragI = null;
-$('todayQueue').addEventListener('click', e => { const n=e.target.closest('.tq-row'); if(n) askNote(+n.dataset.note); });
 $('kanban').addEventListener('click', e => { const n=e.target.closest('.knote'); if(n){ e.stopPropagation(); askNote(+n.dataset.note); } });
 $('kanban').addEventListener('dragstart', e => { const c=e.target.closest('.kcard'); if(c){ _kdragI=+c.dataset.i; c.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain', c.dataset.i); }catch(_){} } });
 $('kanban').addEventListener('dragend', e => { const c=e.target.closest('.kcard'); if(c) c.classList.remove('dragging'); });
