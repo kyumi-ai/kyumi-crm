@@ -463,7 +463,7 @@
 </section>
 
 <section id="zone-inmail">
-  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">stage = Contacted, pending 7+ days · fit incl. company segment/status · warm &amp; already-InMailed de-prioritized</span></div>
+  <div class="sec-head"><h2>InMail Candidates</h2><span class="hint" id="inmailHint">exec / VP / director titles only · stage = Contacted, pending 7+ days · warm &amp; already-InMailed de-prioritized</span></div>
   <div class="sec-body">
     <div class="table-scroll" style="max-height:480px">
       <table class="grid" id="inmailTable"></table>
@@ -1318,12 +1318,21 @@ function buildQueue(){
   return groups;
 }
 
+// Title tiers, shared by the fit score AND the candidate gate so the two never disagree.
+// C-level is matched both spelled-out (chief…) and as acronyms (CEO/CTO/COO/…).
+const RE_EXEC = /founder|\bceo\b|\bcoo\b|\bcto\b|\bcfo\b|\bcpo\b|\bcio\b|\bcmo\b|\bcro\b|\bcxo\b|chief|president|\bowner\b/;
+const RE_VP   = /\bvp\b|vice president|\bsvp\b|\bevp\b|head of|\bhead\b/;
+const RE_DIR  = /director|\bdir\b/;
+// A scarce InMail credit is worth spending ONLY on senior decision-makers — execs, VPs,
+// and directors. Managers, leads, and individual contributors (mechanical/design
+// engineers, etc.) never qualify; renderInmail() uses this to drop them from the list.
+function isInmailSenior(l){ const t = (l.title || '').toLowerCase(); return RE_EXEC.test(t) || RE_VP.test(t) || RE_DIR.test(t); }
 function inmailScore(l, acctCount){
   const t = l.title.toLowerCase();
   let score = 0; const tags = [];
-  if(/founder|ceo|president|owner|chief/.test(t)){ score += 3; tags.push('exec +3'); }
-  else if(/\bvp\b|vice president|head of/.test(t)){ score += 3; tags.push('VP +3'); }
-  else if(/director|\bdir\b/.test(t)){ score += 2; tags.push('director +2'); }
+  if(RE_EXEC.test(t)){ score += 3; tags.push('exec +3'); }
+  else if(RE_VP.test(t)){ score += 3; tags.push('VP +3'); }
+  else if(RE_DIR.test(t)){ score += 2; tags.push('director +2'); }
   else if(/manager|\bmgr\b|lead/.test(t)){ score += 1; tags.push('mgr +1'); }
   if(/design|product dev|npi|mech/.test(t)){ score += 1; tags.push('design +1'); }
   if(/sales|business development|\bhr\b|human resources|district|recruit/.test(t)){ score -= 3; tags.push('non-buyer −3'); }
@@ -1590,13 +1599,13 @@ function renderInmail(){
   const pending = l => l.stage === 'Contacted' && !/inmail/i.test(l.channel);
   // Ripening gate: only spend a credit once the free invite has had time to be accepted.
   const ls = scopedLeads();
-  const ripening = ls.filter(l => pending(l)
+  const ripening = ls.filter(l => pending(l) && isInmailSenior(l)
     && (daysSince(l.lastTouch) ?? -1) >= 0 && (daysSince(l.lastTouch) ?? -1) < INMAIL_RIPEN_DAYS).length;
   const hint = $('inmailHint');
-  if(hint) hint.textContent = `stage = Contacted, pending ${INMAIL_RIPEN_DAYS}+ days · fit incl. company segment/status · warm & already-InMailed de-prioritized`
+  if(hint) hint.textContent = `exec / VP / director titles only · stage = Contacted, pending ${INMAIL_RIPEN_DAYS}+ days · warm & already-InMailed de-prioritized`
     + (ripening ? ` · ${ripening} still ripening (<${INMAIL_RIPEN_DAYS}d)` : '');
   const cands = ls
-    .filter(l => pending(l) && (daysSince(l.lastTouch) ?? -1) >= INMAIL_RIPEN_DAYS)
+    .filter(l => pending(l) && isInmailSenior(l) && (daysSince(l.lastTouch) ?? -1) >= INMAIL_RIPEN_DAYS)
     .map(l => {
       const acct = counts.get(l.company || '(none)').count;
       const {score, tags} = inmailScore(l, acct);
