@@ -1323,6 +1323,9 @@ function buildQueue(){
 const RE_EXEC = /founder|\bceo\b|\bcoo\b|\bcto\b|\bcfo\b|\bcpo\b|\bcio\b|\bcmo\b|\bcro\b|\bcxo\b|chief|president|\bowner\b/;
 const RE_VP   = /\bvp\b|vice president|\bsvp\b|\bevp\b|head of|\bhead\b/;
 const RE_DIR  = /director|\bdir\b/;
+// A genuine warm hook worth a credit-spend boost: an alumni/Waterloo tie, ex-Apple/Tesla
+// pedigree, or a referral/intro. Plain "Cold" / "Cold Outbound" sources are NOT hooks.
+const HOOK_RE = /waterloo|\balumni\b|ex.?tesla|ex.?apple|\breferr|warm intro|\bmutual\b/i;
 // A scarce InMail credit is worth spending ONLY on senior decision-makers — execs, VPs,
 // and directors. Managers, leads, and individual contributors (mechanical/design
 // engineers, etc.) never qualify; renderInmail() uses this to drop them from the list.
@@ -1343,17 +1346,17 @@ function inmailScore(l, acctCount){
   // relationship → push down. Cold + an affinity hook (ex-Tesla/Apple/Waterloo, or a
   // referral hook in Source) is the ideal paid-credit target → boost.
   if(l.lane === 'HOT' || l.lane === 'WARM'){ score -= 2; tags.push('reachable warm −2'); }
-  else {
-    const affinity = (l.source && !/^cold$/i.test(l.source.trim()))
-                  || /ex.?tesla|ex.?apple|u?waterloo/i.test(t);
-    if(affinity){ score += 2; tags.push('affinity hook +2'); }
-  }
-  // Company-fit (scored only when tagged): the refined beachhead is established
-  // manufacturers with large supplier networks; enterprise is favored for credit spend.
+  else if(HOOK_RE.test((l.source || '') + ' ' + t)){ score += 2; tags.push('affinity hook +2'); }
+  // Company-fit: the refined beachhead is manufacturers / hardware makers. Prefer an
+  // explicitly-tagged segment; when it's blank (most cold-outbound leads), infer the
+  // company type from the company NAME so this dimension still differentiates the list.
   const seg = (l.segment || '').toLowerCase();
+  const coName = (l.company || '').toLowerCase();
+  const MFG_CO = /manufactur|\bmfg\b|stamping|machin|fabricat|\btool(ing|s)?\b|\bmetal\b|foundry|casting|\bindustr|automation|robotics|\boem\b|precision|\bwelding\b|\bplastics\b|\bmold|automotive|aerospace|aviation|\bdefen[cs]e\b|medical|\bmotor|batter|semiconductor|\bmarine\b|electronic|\bhardware\b/;
   if(/manufactur|oem|stamping|machin|fabricat/.test(seg)){ score += 3; tags.push('mfg segment +3'); }
   else if(/enterprise/.test(seg)){ score += 2; tags.push('enterprise +2'); }
   else if(/startup/.test(seg)){ score += 1; tags.push('startup +1'); }
+  else if(MFG_CO.test(coName)){ score += 2; tags.push('mfg/hardware co +2'); }
   const cs = (l.companyStatus || '').toLowerCase();
   if(/public|established|series\s*[cd]|c\+/.test(cs)){ score += 2; tags.push('established +2'); }
   else if(/series\s*b|growth/.test(cs)){ score += 1; tags.push('growth +1'); }
