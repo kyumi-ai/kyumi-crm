@@ -4,48 +4,60 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KYUMI · LEAD PIPELINE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#f4f1e8;
-    --paper-2:#ece8db;
-    --ink:#1c2733;
-    --ink-soft:#4a5a6a;
-    --ink-faint:#8b97a3;
-    --accent:#d64500;       /* safety orange */
-    --accent-soft:#f3d9cc;
-    --steel:#2b5d8a;
-    --steel-soft:#d9e4ee;
-    --ok:#1e7a4f;
-    --ok-soft:#d7e9de;
-    --hot:#b3261e;
-    --line:rgba(28,39,51,.85);
-    --line-faint:rgba(28,39,51,.18);
-    --grid:rgba(43,93,138,.07);
-    --mono:"SF Mono",Menlo,Consolas,monospace;
-    --display:"Avenir Next Condensed","Avenir Next","Futura","Helvetica Neue",sans-serif;
-    --body:"Avenir Next","Helvetica Neue",Helvetica,sans-serif;
+    /* ===== Kyumi x Wispr design system ===== */
+    --bg-page:#E0F7FA;      /* cyan "paper" background */
+    --paper:#FFFFFF;        /* white surfaces (cards / sections) */
+    --paper-2:#EAF9FB;      /* faint cyan tint — sub-heads, fills */
+    --ink:#143642;          /* jet-navy: text, icons, borders, anchor */
+    --ink-soft:#4A6470;     /* muted navy */
+    --ink-faint:#8AA1A9;    /* faint navy-teal */
+    --accent:#00C4B3;       /* teal — primary accent */
+    --accent-deep:#008B8B;  /* dark cyan — hover / links */
+    --accent-soft:#CDEFEC;  /* soft teal fill */
+    --steel:#008B8B;        /* secondary → deep teal */
+    --steel-soft:#D6F0EC;
+    --ok:#008B8B;           /* success → deep teal */
+    --ok-soft:#D3F0EC;
+    --hot:#D9737A;          /* danger → deep cherry-blossom */
+    --warn:#F5C86B;
+    --line:rgba(20,54,66,.9);
+    --line-faint:rgba(20,54,66,.16);
+    --grid:rgba(20,54,66,.045);
+    --shadow-hard:4px 4px 0 var(--ink);      /* hard navy "sticker" offset */
+    --shadow-hard-sm:3px 3px 0 var(--ink);
+    --radius:16px;
+    --radius-sm:10px;
+    --mono:"Figtree",ui-sans-serif,system-ui,sans-serif;               /* Kyumi has no mono; data = Figtree + tabular-nums */
+    --display:"EB Garamond",Georgia,"Times New Roman",serif;           /* serif display */
+    --body:"Figtree",ui-sans-serif,system-ui,-apple-system,sans-serif; /* geometric sans body */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
-    background:
-      repeating-linear-gradient(0deg,transparent 0 23px,var(--grid) 23px 24px),
-      repeating-linear-gradient(90deg,transparent 0 23px,var(--grid) 23px 24px),
-      var(--paper);
+    background:var(--bg-page);
     color:var(--ink);
     font-family:var(--body);
     font-size:14px;
-    line-height:1.45;
+    line-height:1.5;
     padding:28px clamp(16px,4vw,56px) 80px;
+    -webkit-font-smoothing:antialiased;
   }
-  ::selection{background:var(--accent);color:var(--paper)}
+  ::selection{background:var(--accent);color:var(--ink)}
 
   /* ---------- title block ---------- */
   header.sheet{
-    border:1.5px solid var(--line);
+    border:2px solid var(--ink);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-hard);
+    overflow:hidden;
     background:var(--paper);
     display:grid;
     grid-template-columns:1fr auto;
-    margin-bottom:26px;
+    margin-bottom:30px;
     animation:rise .5s ease both;
   }
   .sheet-id{padding:18px 24px;border-right:1.5px solid var(--line)}
@@ -64,9 +76,12 @@
 
   /* ---------- generic section frames ---------- */
   section{
-    border:1.5px solid var(--line);
+    border:2px solid var(--ink);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-hard);
+    overflow:hidden;
     background:var(--paper);
-    margin-bottom:26px;
+    margin-bottom:30px;
     position:relative;
     animation:rise .5s ease both;
   }
@@ -89,7 +104,7 @@
   .sec-body{padding:18px}
 
   /* ---------- KPI tiles ---------- */
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1.5px solid var(--line);margin-bottom:26px;background:var(--paper);animation:rise .5s ease both}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:2px solid var(--ink);border-radius:var(--radius);box-shadow:var(--shadow-hard);overflow:hidden;margin-bottom:30px;background:var(--paper);animation:rise .5s ease both}
   .kpi{padding:16px 18px 14px;border-right:1px solid var(--line-faint);position:relative}
   .kpi:last-child{border-right:none}
   .kpi label{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);display:block}
@@ -100,7 +115,7 @@
   .kpi.ok .num{color:var(--ok)}
 
   /* ---------- daily touch tracker ---------- */
-  .daily{border:1.5px solid var(--line);background:var(--paper);margin-bottom:26px;display:grid;grid-template-columns:auto 1fr auto;animation:rise .5s ease both}
+  .daily{border:2px solid var(--ink);border-radius:var(--radius);box-shadow:var(--shadow-hard);overflow:hidden;background:var(--paper);margin-bottom:30px;display:grid;grid-template-columns:auto 1fr auto;animation:rise .5s ease both}
   .daily .today{display:flex;align-items:center;gap:16px;padding:12px 22px;border-right:1.5px solid var(--line)}
   .daily .today .num{font-family:var(--display);font-size:52px;font-weight:700;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
   .daily label{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);display:block}
@@ -161,14 +176,14 @@
   .owner-toggle{display:inline-flex;border:1px solid var(--line);overflow:hidden}
   .owner-btn{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;padding:5px 14px;background:var(--paper);color:var(--ink-soft);border:0;border-right:1px solid var(--line-faint);cursor:pointer}
   .owner-btn:last-child{border-right:0}
-  .owner-btn.active{background:var(--accent);color:#fff}
+  .owner-btn.active{background:var(--accent);color:var(--ink)}
   .owner-bar-hint{font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-left:auto}
   .dupes{margin:0 0 14px;border:1px solid var(--hot);background:var(--paper);padding:10px 14px}
   .dupes-title{font-family:var(--mono);font-size:11px;color:var(--hot);font-weight:700;margin-bottom:8px}
   .dupe-row{display:flex;align-items:center;gap:12px;padding:4px 0;font-family:var(--mono);font-size:11px}
   .dupe-row .dupe-nm{font-weight:700;min-width:160px}
   .dupe-row .dupe-meta{color:var(--ink-faint);flex:1}
-  .merge-btn{font-family:var(--mono);font-size:10px;padding:3px 10px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+  .merge-btn{font-family:var(--mono);font-size:10px;padding:3px 10px;border:1px solid var(--accent);background:var(--accent);color:var(--ink);cursor:pointer}
   .merge-btn:hover{opacity:.85}
   .row-del{cursor:pointer;color:var(--ink-faint);text-align:center;font-weight:700;user-select:none}
   .row-del:hover{color:var(--hot)}
